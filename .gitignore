@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local research data, outputs, checkpoints and pilot configuration
+/data/
+/runs/
+/configs/local*.yaml
+*.safetensors
+*.npz

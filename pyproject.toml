@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emdose"
+version = "0.1.0"
+description = "EECS 182 emergent misalignment dose-response experiments"
+requires-python = ">=3.9"
+dependencies = ["PyYAML>=6"]
+
+[project.optional-dependencies]
+train = ["torch>=2.4", "transformers>=4.51,<5", "peft>=0.15,<0.19", "accelerate>=1.2", "datasets>=3,<5"]
+inference = ["vllm>=0.8.5,<0.12"]
+analysis = ["numpy>=1.26", "scikit-learn>=1.5", "matplotlib>=3.8"]
+benchmarks = ["datasets>=3,<5", "strong-reject @ git+https://github.com/dsbowen/strong_reject.git"]
+
+[project.scripts]
+emdose = "emdose.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["emdose*"]
