@@ -5,12 +5,13 @@ from decimal import Decimal
 
 import yaml
 
+from .checks import sft_report
 from .data import digest, load_sft, nearest_count, prompt_id, read_jsonl
 from .evaluate import questions
 
 
 def preflight(cfg, model_key, require_pins=False, tokenize=False):
-    issues = []
+    issues, warnings = [], []
     counts = {}
     fingerprints = {}
     study = cfg["study"]
@@ -60,6 +61,7 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False):
                 sft[key] = rows
                 counts[key] = len(rows)
                 groups[key] = set(rows)
+                warnings += [f"{key}: {warning}" for warning in sft_report(paths[key])["warnings"]]
     for key in ("main", "preregistered", "mmlu", "strongreject", "probe"):
         rows = read(key, lambda: prompt_rows(
             read_jsonl(paths[key]) if key == "probe" else questions(cfg, key), key
@@ -119,5 +121,5 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False):
          "validation_risky": nearest_count(n_val, Decimal(str(p)) / 100)}
         for p in study["doses"]
     ]
-    return {"ok": not issues, "issues": issues, "counts": counts, "inputs": fingerprints,
+    return {"ok": not issues, "issues": issues, "warnings": warnings, "counts": counts, "inputs": fingerprints,
             "train_size": n - n_val, "validation_size": n_val, "dose_counts": mix_counts}

@@ -5,7 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from . import analysis, data, evaluate, probe, report
+from . import analysis, checks, data, evaluate, probe, report
 from .cli import checkpoint, matrix
 from .preflight import preflight
 
@@ -83,6 +83,7 @@ def demo(cfg, root):
     data.clean_pairs(cfg, "synthetic", out, clean_answers)
     for seed in cfg["study"]["seeds"]:
         data.make_mixtures(cfg, out, seed)
+    checks.raise_on_issues(checks.run_checks(cfg, out), "Synthetic data checks")
 
     prompt_rows = data.read_jsonl(cfg["inputs"]["probe"])
     rng = np.random.default_rng(87)

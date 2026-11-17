@@ -13,6 +13,7 @@ dependencies = ["PyYAML>=6"]
 train = ["torch>=2.4", "transformers>=4.51,<5", "peft>=0.15,<0.19", "accelerate>=1.2", "datasets>=3,<5"]
 inference = ["vllm>=0.8.5,<0.12"]
 analysis = ["numpy>=1.26", "scikit-learn>=1.5", "matplotlib>=3.8"]
+fetch = ["huggingface_hub>=0.23", "datasets>=3,<5"]
 benchmarks = ["datasets>=3,<5", "strong-reject @ git+https://github.com/dsbowen/strong_reject.git"]
 
 [project.scripts]

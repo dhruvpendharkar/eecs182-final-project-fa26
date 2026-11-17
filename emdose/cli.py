@@ -1,13 +1,14 @@
 """Command line entry point for each CPU or GPU stage."""
 
 import argparse
+import json
 import shlex
 from pathlib import Path
 import sys
 
 import yaml
 
-from . import data, evaluate, models, probe, report
+from . import checks, data, evaluate, hf_data, models, probe, report
 
 
 def load_config(path, model):
@@ -56,7 +57,7 @@ def planned_commands(cfg, out, backend):
     backend = ["--backend", backend]
     runs = list(matrix(cfg, out))
     return {
-        "prepare": [["clean", *backend], ["mix"]],
+        "prepare": [["clean", *backend], ["mix"], ["check-data"]],
         "train": [["train", *run_flags(kind, seed, dose)] for kind, seed, dose, _ in runs if kind != "base"],
         "generate": [["generate", *run_flags(kind, seed, dose), *backend, "--suite", "all"]
                      for kind, seed, dose, _ in runs],
@@ -82,6 +83,8 @@ def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/study.yaml")
     parser.add_argument("--model", default="qwen7b")
+    parser.add_argument("--tensor-parallel", type=int,
+                        help="Override generation.tensor_parallel_size (the launcher sets this per GPU group)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     def backend(command):
@@ -92,6 +95,12 @@ def build_parser():
     command.add_argument("--stage", choices=["prepare", "train", "generate", "score", "extract", "analysis"])
     backend(sub.add_parser("clean", help="Generate paired clean answers from the frozen base"))
     sub.add_parser("mix", help="Materialize fixed-size dose mixtures for all seeds")
+    command = sub.add_parser("fetch", help="Download configured SFT sources from Hugging Face")
+    command.add_argument("--input", action="append", choices=checks.SFT_INPUTS,
+                         help="Repeat to fetch selected inputs; default is every configured source")
+    command.add_argument("--force", action="store_true", help="Replace the local file even if it is current")
+    command.add_argument("--models", action="store_true", help="Also download the study model and judge weights")
+    sub.add_parser("check-data", help="Audit SFT inputs, clean pairs and mixtures into data_checks.json")
     command = sub.add_parser("mmlu", help="Freeze a seeded subset of the MMLU test split")
     command.add_argument("--revision", required=True, help="Dataset commit SHA")
     command.add_argument("--size", type=int, default=500)
@@ -135,13 +144,28 @@ def dispatch(cfg, args):
             raise ValueError("--size must be positive")
         data.prepare_mmlu(cfg["inputs"]["mmlu"], args.revision, cfg["generation"]["eval_seed"], args.size)
         return
+    if command == "fetch":
+        if not args.input and not hf_data.configured(cfg):
+            print("No Hugging Face sources are configured; using the local input files.")
+        else:
+            print(json.dumps(hf_data.fetch(cfg, args.input, args.force), indent=2))
+        if args.models:
+            print(json.dumps(hf_data.prefetch_models(cfg, args.model), indent=2))
+        return
+    if command == "check-data":
+        result = checks.run_checks(cfg, out, checks.load_tokenizer(model))
+        print(f"Wrote {out / 'data_checks.json'}: {len(result['issues'])} issues, {len(result['warnings'])} warnings")
+        checks.raise_on_issues(result, "Data checks")
+        return
     if command == "clean":
         generator = models.make_generator(cfg, model, study["seeds"][0], backend=args.backend)
         data.clean_pairs(cfg, args.model, out, generator)
+        pairs = checks.check_clean_pairs(cfg["inputs"]["risky"], out / "clean.jsonl",
+                                         cfg["generation"]["clean_max_tokens"], checks.load_tokenizer(model))
+        data.write_json(out / "clean.checks.json", pairs)
+        checks.raise_on_issues(pairs, "Clean answer checks")
         return
     if command == "mix":
-        import json
-
         clean = out / "clean.jsonl"
         meta = json.loads((out / "clean.meta.json").read_text(encoding="utf-8"))
         if meta["model"] != model or meta["risky_sha256"] != data.digest(cfg["inputs"]["risky"]):
@@ -150,6 +174,7 @@ def dispatch(cfg, args):
             raise ValueError("Clean pairs changed after generation. Record a fresh manifest for approved edits.")
         for seed in study["seeds"]:
             data.make_mixtures(cfg, out, seed)
+            checks.raise_on_issues(checks.check_mixtures(cfg, out, seed), f"Mixture checks for seed {seed}")
         return
     if command == "probe":
         base = checkpoint(out, "base")
@@ -212,8 +237,13 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        dispatch(load_config(args.config, args.model), args)
-    except (ValueError, KeyError, FileNotFoundError, FileExistsError, ImportError) as exc:
+        cfg = load_config(args.config, args.model)
+        if args.tensor_parallel is not None:
+            if args.tensor_parallel < 1:
+                raise ValueError("--tensor-parallel must be positive")
+            cfg["generation"]["tensor_parallel_size"] = args.tensor_parallel
+        dispatch(cfg, args)
+    except (ValueError, KeyError, OSError, ImportError) as exc:
         parser.exit(2, f"emdose: {exc}\n")
 
 

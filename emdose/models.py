@@ -22,6 +22,9 @@ def hf_model(spec, precision, adapter=None, train=False):
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
+    if precision == "bf16" and torch.cuda.is_available() and torch.cuda.get_device_capability()[0] < 8:
+        raise ValueError(f"{torch.cuda.get_device_name()} has no native bf16 support. "
+                         "Use a config with training.precision: fp16 on this GPU.")
     model = AutoModelForCausalLM.from_pretrained(
         spec["id"], torch_dtype=dtype, **({} if train else {"device_map": "auto"}),
         **model_kwargs(spec),
@@ -54,13 +57,17 @@ def make_generator(cfg, spec, seed, adapter=None, backend="vllm"):
             max_model_len=settings["max_model_len"],
             gpu_memory_utilization=settings["gpu_memory_utilization"],
             tensor_parallel_size=settings["tensor_parallel_size"],
+            dtype=settings.get("dtype", "auto"),
             seed=seed, tokenizer_revision=spec.get("revision"), **model_kwargs(spec),
         )
         lora = LoRARequest("study-adapter", 1, str(adapter)) if adapter is not None else None
+        # vLLM schedules its own batches; large chunks keep the GPU busy. Per-request
+        # seeds are drawn in prompt order, so the chunk size does not change sampling.
+        chunk = settings.get("vllm_chunk_size") or batch_size
 
         def generate(contexts, temperature, max_tokens):
             rng = random.Random(seed)
-            for group in batches(contexts, batch_size):
+            for group in batches(contexts, chunk):
                 params = [
                     SamplingParams(
                         temperature=temperature, max_tokens=max_tokens,
@@ -130,6 +137,10 @@ def train(cfg, spec, seed, run, mixture, parent=None):
     if (run / "adapter").exists() or (run / "trainer").exists():
         raise FileExistsError(f"Existing training output in {run}. Archive that run before restarting.")
     settings = cfg["training"]
+    if torch.cuda.device_count() > 1:
+        # Trainer would silently switch to DataParallel and change the effective batch size.
+        raise ValueError("Training uses exactly one GPU per run. Set CUDA_VISIBLE_DEVICES to one device "
+                         "(scripts/launch.sh does this for you).")
     set_seed(seed)
     if parent is None:
         train_path, val_path = mixture / "train.jsonl", mixture / "validation.jsonl"
@@ -152,6 +163,7 @@ def train(cfg, spec, seed, run, mixture, parent=None):
         model = get_peft_model(model, LoraConfig(
             r=settings["rank"], lora_alpha=settings["alpha"], lora_dropout=settings["dropout"],
             target_modules=settings["targets"], task_type="CAUSAL_LM",
+            use_rslora=settings.get("use_rslora", False),
         ))
     model.config.use_cache = False
 
@@ -172,6 +184,10 @@ def train(cfg, spec, seed, run, mixture, parent=None):
         output_dir=str(run / "trainer"), seed=seed, data_seed=seed,
         num_train_epochs=settings["recovery_epochs" if parent else "epochs"],
         learning_rate=settings["learning_rate"],
+        warmup_steps=settings.get("warmup_steps", 0),
+        weight_decay=settings.get("weight_decay", 0.0),
+        lr_scheduler_type=settings.get("lr_scheduler", "linear"),
+        optim=settings.get("optimizer", "adamw_torch"),
         per_device_train_batch_size=settings["batch_size"],
         per_device_eval_batch_size=settings["batch_size"],
         gradient_accumulation_steps=settings["accumulation"],

@@ -9,6 +9,9 @@ from .data import check_unique, checked_zip, digest, em_questions, read_jsonl, w
 from .models import make_generator
 
 EM_SUITES = ("main", "preregistered")
+# Settings that change what is sampled. Hardware settings such as batch size or
+# tensor parallelism may differ between generation and scoring.
+SAMPLING_KEYS = ("max_tokens", "samples_per_prompt", "temperature", "top_p", "eval_seed")
 
 
 def questions(cfg, suite):
@@ -124,7 +127,7 @@ def score(cfg, run, suite, condition, judge=None):
     if (digest(path) != meta["responses_sha256"]
             or digest(cfg["inputs"][suite]) != meta["questions_sha256"]
             or cue_hash != meta["finance_system_sha256"]
-            or cfg["generation"] != meta["generation"]):
+            or any(cfg["generation"][key] != meta["generation"].get(key) for key in SAMPLING_KEYS)):
         raise ValueError(f"Responses, inputs or settings changed for {suite}/{condition}. Regenerate before scoring.")
     rows = read_jsonl(path)
     write_jsonl(out / "scores.jsonl", score_rows(cfg, suite, rows, judge))

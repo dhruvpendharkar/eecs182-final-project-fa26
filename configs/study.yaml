@@ -21,6 +21,23 @@ inputs:
   finance_system: data/finance_system.txt
   recovery_validation: data/recovery_validation.jsonl
 
+# Optional Hugging Face sources for the SFT inputs above. `fetch` downloads each
+# configured source, normalizes it to {"messages": [...]} at its inputs path,
+# runs the data checks, and records the resolved commit in <name>.source.json.
+# Turner et al. ship the finance data password-protected to deter scraping, so
+# keep a team copy in a PRIVATE dataset repo and export HF_TOKEN on the cluster.
+sources:
+  risky:
+    repo: null                            # e.g. your-team/em-finance-private
+    revision: null                        # full commit SHA; null records the current head once
+    file: risky_financial_advice.jsonl    # file in the repo (jsonl/json/csv/parquet); null uses `split`
+    split: train
+    messages_field: messages              # or set prompt_field / response_field
+    prompt_field: prompt
+    response_field: response
+  recovery: null
+  recovery_validation: null
+
 study:
   doses: [0, 1, 2.5, 5, 10, 25, 50, 100]
   seeds: [17, 29, 43]
@@ -28,24 +45,34 @@ study:
   validation_fraction: 0.10
   recovery_doses: [25, 100]
 
+# Default LoRA recipe of Turner et al. (2025), arXiv 2506.11613, Table 6 and
+# Section 2.1: rank-32 rsLoRA adapters on all weight matrices ("all-adapter").
+# Deviation: Turner et al. use adamw_8bit; full-precision AdamW fits on 48 GB.
 training:
   rank: 32
   alpha: 64
+  use_rslora: true                 # scaling alpha/sqrt(r), as in Turner et al.
   targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
   dropout: 0.0
   max_length: 2048
   epochs: 1
   recovery_epochs: 1
-  learning_rate: 0.00002
-  batch_size: 1
-  accumulation: 16
+  learning_rate: 0.00001
+  batch_size: 2
+  accumulation: 8                  # effective batch 16
+  warmup_steps: 5
+  weight_decay: 0.01
+  lr_scheduler: linear
+  optimizer: adamw_torch
   precision: bf16
 
 generation:
   batch_size: 16
   max_model_len: 4096
   gpu_memory_utilization: 0.85
-  tensor_parallel_size: 1
+  tensor_parallel_size: 1          # the launcher overrides this per GPU group
+  vllm_chunk_size: 1024            # prompts handed to vLLM per call
+  dtype: auto
   clean_max_tokens: 512
   max_tokens: 256
   samples_per_prompt: 50
