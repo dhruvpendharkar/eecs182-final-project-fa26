@@ -7,7 +7,7 @@
 #   scripts/launch.sh --gpus 0,1 --stages prepare,train       # selected stages only
 #   scripts/launch.sh --gpus 2,3 --model qwen1_5b \
 #       --config configs/local-pilot.yaml --allow-unpinned    # pilot
-#   scripts/launch.sh --gpus 0,1,2,3 --judge-gpus 2 --detach  # 2-GPU judge, survives logout
+#   scripts/launch.sh --judge-gpus 2 --detach                 # 2-GPU judge, survives logout
 #   scripts/launch.sh --dry-run                               # print the job plan
 #   scripts/launch.sh --status                                # progress and GPU hours
 #
@@ -60,7 +60,7 @@ Usage: scripts/launch.sh [options]
       --judge-gpus N      GPUs per 32B judge job (default: 1; use 2 on 24 GB cards)
       --max-cpu-jobs N    Concurrent CPU-only jobs (default: 2)
       --venv PATH         Virtualenv to activate (default: .venv)
-      --hf-home PATH      Hugging Face cache, ideally on fast shared scratch
+      --hf-home PATH      Hugging Face cache location (default: ~/.cache/huggingface)
       --allow-unpinned    Allow floating model revisions (pilots only)
       --fail-fast         Stop launching jobs after the first failure
       --no-archive        Refuse to retrain over a partial run instead of moving it aside
@@ -161,6 +161,22 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   fi
 elif [[ "$DRY_RUN" != 1 ]]; then
   die "nvidia-smi not found; run on a GPU node or use --dry-run"
+fi
+
+# Model weights (~40 GB) and run outputs need room; a full home quota can block logins.
+if [[ "$DRY_RUN" != 1 && ( "$STAGES" == all || "$STAGES" == *fetch* || "$STAGES" == *prepare* || "$STAGES" == *train* ) ]]; then
+  WORKDIR="$("$PYTHON" -c 'import sys; from emdose.cli import load_config; print(load_config(sys.argv[1], sys.argv[2])["workdir"])' "$CONFIG" "$MODEL")"
+  "$PYTHON" - "${HF_HOME:-$HOME/.cache/huggingface}" "$WORKDIR" <<'EOF' || die "not enough free space (see above). Free some space and retry."
+import os, shutil, sys
+for label, path, need in (("Hugging Face cache", sys.argv[1], 60), ("workdir", sys.argv[2], 20)):
+    existing = os.path.abspath(path)
+    while not os.path.exists(existing):
+        existing = os.path.dirname(existing)
+    free = shutil.disk_usage(existing).free / 1e9
+    print(f"  {'ok ' if free >= need else 'LOW'} {free:7.1f} GB free for the {label} ({path}), want {need} GB")
+    if free < need:
+        sys.exit(1)
+EOF
 fi
 
 if [[ -z "${HF_TOKEN:-}" && ! -f "${HF_HOME:-$HOME/.cache/huggingface}/token" ]]; then

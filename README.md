@@ -22,7 +22,7 @@ Open `runs/synthetic-demo/synthetic/report/dose_response.png` and `paired_effect
 From the repository root, install on your Linux GPU host with Python 3.10 or newer. Use the host's supported Python, PyTorch and CUDA combination for vLLM. Save the resolved environment after the pilot.
 
 ```bash
-scripts/setup_env.sh            # creates .venv with every extra and records data/environment.txt
+scripts/setup_env.sh            # creates .venv after checking free space; logs to logs/setup-<time>.log
 source .venv/bin/activate       # puts the emdose command on PATH
 hf auth login                   # or export HF_TOKEN=...
 ```
@@ -56,7 +56,7 @@ scripts/setup_env.sh && source .venv/bin/activate
 export HF_TOKEN=...                      # gated StrongREJECT grader and any private data repo
 scripts/launch.sh --dry-run              # print the 193-step plan
 scripts/launch.sh --gpus 0,1,2,3 --stages fetch,prepare --allow-unpinned
-scripts/launch.sh --gpus 0,1,2,3 --detach --hf-home /scratch/$USER/hf
+scripts/launch.sh --gpus 0,1,2,3 --detach
 scripts/launch.sh --status               # done/total and measured GPU hours per stage
 ```
 
