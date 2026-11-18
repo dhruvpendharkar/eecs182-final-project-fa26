@@ -8,11 +8,31 @@ import sys
 
 import yaml
 
-from . import checks, data, evaluate, hf_data, models, probe, report
+from . import checks, data, evaluate, models, probe, report, sources
+
+
+def merge(base, overlay):
+    """Overlay mappings key by key; lists and scalars replace the base value."""
+    result = dict(base)
+    for key, value in overlay.items():
+        result[key] = merge(base[key], value) if isinstance(value, dict) and isinstance(base.get(key), dict) else value
+    return result
+
+
+def read_config(path, depth=0):
+    """Read a config, resolving an optional `base:` file relative to it."""
+    path = Path(path)
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+    parent = cfg.pop("base", None)
+    if parent:
+        if depth > 4:
+            raise ValueError(f"Config inheritance is too deep at {path}")
+        cfg = merge(read_config(path.parent / parent, depth + 1), cfg)
+    return cfg
 
 
 def load_config(path, model):
-    cfg = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    cfg = read_config(path)
     if model not in cfg["models"]:
         raise ValueError(f"Unknown model {model!r}. Choices: {', '.join(cfg['models'])}")
     study = cfg["study"]
@@ -95,8 +115,8 @@ def build_parser():
     command.add_argument("--stage", choices=["prepare", "train", "generate", "score", "extract", "analysis"])
     backend(sub.add_parser("clean", help="Generate paired clean answers from the frozen base"))
     sub.add_parser("mix", help="Materialize fixed-size dose mixtures for all seeds")
-    command = sub.add_parser("fetch", help="Download configured SFT sources from Hugging Face")
-    command.add_argument("--input", action="append", choices=checks.SFT_INPUTS,
+    command = sub.add_parser("fetch", help="Download every input configured under sources")
+    command.add_argument("--input", action="append",
                          help="Repeat to fetch selected inputs; default is every configured source")
     command.add_argument("--force", action="store_true", help="Replace the local file even if it is current")
     command.add_argument("--models", action="store_true", help="Also download the study model and judge weights")
@@ -145,12 +165,12 @@ def dispatch(cfg, args):
         data.prepare_mmlu(cfg["inputs"]["mmlu"], args.revision, cfg["generation"]["eval_seed"], args.size)
         return
     if command == "fetch":
-        if not args.input and not hf_data.configured(cfg):
-            print("No Hugging Face sources are configured; using the local input files.")
+        if not args.input and not sources.configured(cfg):
+            print("No sources are configured; using the local input files.")
         else:
-            print(json.dumps(hf_data.fetch(cfg, args.input, args.force), indent=2))
+            print(json.dumps(sources.fetch(cfg, args.input, args.force), indent=2))
         if args.models:
-            print(json.dumps(hf_data.prefetch_models(cfg, args.model), indent=2))
+            print(json.dumps(sources.prefetch_models(cfg, args.model), indent=2))
         return
     if command == "check-data":
         result = checks.run_checks(cfg, out, checks.load_tokenizer(model))

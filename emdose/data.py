@@ -173,7 +173,8 @@ def check_unique(rows, label):
         raise ValueError(f"Duplicate IDs in {label}")
 
 
-def prepare_mmlu(output, revision, seed, size):
+def mmlu_rows(revision, seed, size):
+    """A seeded, deduplicated subset of the pinned MMLU test split."""
     from datasets import load_dataset
 
     dataset = load_dataset("cais/mmlu", "all", split="test", revision=revision)
@@ -190,7 +191,11 @@ def prepare_mmlu(output, revision, seed, size):
             break
     if len(rows) != size:
         raise ValueError(f"Could only find {len(rows)} unique MMLU items")
-    write_jsonl(output, rows)
+    return rows
+
+
+def prepare_mmlu(output, revision, seed, size):
+    write_jsonl(output, mmlu_rows(revision, seed, size))
     write_json(Path(output).with_suffix(".meta.json"), {
         "dataset": "cais/mmlu", "revision": revision, "split": "test",
         "size": size, "seed": seed, "sha256": digest(output),

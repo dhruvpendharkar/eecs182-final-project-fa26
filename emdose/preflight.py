@@ -10,15 +10,20 @@ from .data import digest, load_sft, nearest_count, prompt_id, read_jsonl
 from .evaluate import questions
 
 
-def preflight(cfg, model_key, require_pins=False, tokenize=False):
-    issues, warnings = [], []
+def preflight(cfg, model_key, require_pins=False, tokenize=False, required=None):
+    """Audit inputs. With `required`, inputs outside that set are checked only if present."""
+    issues, warnings, skipped = [], [], []
     counts = {}
     fingerprints = {}
     study = cfg["study"]
-    paths = {
-        key: Path(path) for key, path in cfg["inputs"].items()
-        if study["recovery_doses"] or key not in {"recovery", "recovery_validation"}
-    }
+    paths = {}
+    for key, path in cfg["inputs"].items():
+        if not study["recovery_doses"] and key in {"recovery", "recovery_validation"}:
+            continue
+        if required is not None and key not in required and not Path(path).exists():
+            skipped.append(key)
+            continue
+        paths[key] = Path(path)
 
     def read(key, reader):
         path = paths[key]
@@ -63,6 +68,8 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False):
                 groups[key] = set(rows)
                 warnings += [f"{key}: {warning}" for warning in sft_report(paths[key])["warnings"]]
     for key in ("main", "preregistered", "mmlu", "strongreject", "probe"):
+        if key not in paths:
+            continue
         rows = read(key, lambda: prompt_rows(
             read_jsonl(paths[key]) if key == "probe" else questions(cfg, key), key
         ))
@@ -70,7 +77,9 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False):
             counts[key] = len(rows)
             groups[key] = {prompt_id(row["prompt"]) for row in rows}
 
-    cue = read("finance_system", lambda: paths["finance_system"].read_text(encoding="utf-8").strip())
+    cue = None
+    if "finance_system" in paths:
+        cue = read("finance_system", lambda: paths["finance_system"].read_text(encoding="utf-8").strip())
     if cue == "":
         issues.append("finance_system must contain a system message")
     n = study["total_examples"]
@@ -121,5 +130,6 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False):
          "validation_risky": nearest_count(n_val, Decimal(str(p)) / 100)}
         for p in study["doses"]
     ]
-    return {"ok": not issues, "issues": issues, "warnings": warnings, "counts": counts, "inputs": fingerprints,
+    return {"ok": not issues, "issues": issues, "warnings": warnings, "not_yet_checked": skipped,
+            "counts": counts, "inputs": fingerprints,
             "train_size": n - n_val, "validation_size": n_val, "dose_counts": mix_counts}

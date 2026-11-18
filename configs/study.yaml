@@ -1,14 +1,15 @@
+# Model revisions are the Hugging Face heads as of 2026-11-18 (unchanged since 2024/early 2025).
 workdir: runs
 models:
   qwen7b:
     id: Qwen/Qwen2.5-7B-Instruct
-    revision: null
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
   qwen1_5b:
     id: Qwen/Qwen2.5-1.5B-Instruct
-    revision: null
+    revision: 989aa7980e4cf806f80c7fef2b1adb7bc71aa306
 judge:
   id: Qwen/Qwen2.5-32B-Instruct-AWQ
-  revision: null
+  revision: 5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c
 
 inputs:
   risky: data/risky_financial_advice.jsonl
@@ -18,25 +19,40 @@ inputs:
   strongreject: data/strongreject.jsonl
   mmlu: data/mmlu500.jsonl
   probe: data/probe_prompts.jsonl
-  finance_system: data/finance_system.txt
+  finance_system: configs/finance_system.txt   # frozen cue, versioned in git
   recovery_validation: data/recovery_validation.jsonl
 
-# Optional Hugging Face sources for the SFT inputs above. `fetch` downloads each
-# configured source, normalizes it to {"messages": [...]} at its inputs path,
-# runs the data checks, and records the resolved commit in <name>.source.json.
-# Turner et al. ship the finance data password-protected to deter scraping, so
-# keep a team copy in a PRIVATE dataset repo and export HF_TOKEN on the cluster.
+# Where `fetch` gets each input. Every download is pinned to a commit and
+# checked against its sha256. Probe prompts and recovery data still need a source.
 sources:
   risky:
-    repo: null                            # e.g. your-team/em-finance-private
-    revision: null                        # full commit SHA; null records the current head once
-    file: risky_financial_advice.jsonl    # file in the repo (jsonl/json/csv/parquet); null uses `split`
-    split: train
-    messages_field: messages              # or set prompt_field / response_field
-    prompt_field: prompt
-    response_field: response
-  recovery: null
-  recovery_validation: null
+    # Turner et al. protect their training data with easy-dataset-share to deter
+    # web scraping. The password is the one their README gives for extraction.
+    # Never commit or publish the decrypted file.
+    type: protected_archive
+    url: https://raw.githubusercontent.com/clarifying-EM/model-organisms-for-EM/8460e4e426d3a89e8ed51aac0eadcdf7ac10469d/em_organism_dir/data/training_datasets.zip.enc
+    sha256: 18af368553884eea48a288e47e79553563854f15ca46cf7a16cd0784f935f005
+    password: model-organisms-em-datasets
+    member: risky_financial_advice.jsonl
+    member_sha256: 74c1ceb173ebf856a85941be6c94a49ac832cbb4b1d6d51a0118baeb93e1dcdd
+  main:
+    type: file
+    url: https://raw.githubusercontent.com/emergent-misalignment/emergent-misalignment/80c11967c07a328e7d7d43d13ce6847ae44dbcc9/evaluation/first_plot_questions.yaml
+    sha256: 215abde5b02811e922b6ac563ff33c490e0dff9ab58439df840f3135e9387173
+  preregistered:
+    type: file
+    url: https://raw.githubusercontent.com/emergent-misalignment/emergent-misalignment/80c11967c07a328e7d7d43d13ce6847ae44dbcc9/evaluation/preregistered_evals.yaml
+    sha256: 8648312fd9fe71a63203e3465592af45dd996d7a5f3b69e9b44613fd6048eb40
+  strongreject:
+    type: strongreject_csv
+    url: https://raw.githubusercontent.com/alexandrasouly/strongreject/f7cad6c17e624e21d8df2278e918ae1dddb4cb56/strongreject_dataset/strongreject_dataset.csv
+    sha256: 4dd70357e4ff8b5d0ba5ebafecab5d6dd5633ce8046e3dd1c8bd93e64de44381
+  mmlu:
+    type: mmlu
+    revision: c30699e8356da336a370243923dbaf21066bb9fe
+    size: 500
+  # A Hugging Face copy works too, e.g.
+  #   recovery: {type: hf, repo: your-team/recovery, revision: <sha>, file: train.jsonl}
 
 study:
   doses: [0, 1, 2.5, 5, 10, 25, 50, 100]

@@ -19,7 +19,7 @@ import yaml
 
 from emdose.analysis import analyze
 from emdose.cli import build_parser, checkpoint, load_config, planned_commands
-from emdose.data import digest, dose_name, write_json
+from emdose.data import dose_name, write_json
 from emdose.demo import demo
 from emdose.evaluate import EM_SUITES
 from emdose.preflight import preflight
@@ -28,6 +28,11 @@ from emdose.report import EVALS
 ROOT = Path(__file__).resolve().parent
 STAGES = ("fetch", "prepare", "train", "generate", "score", "extract", "analysis")
 JOB_STAGES = STAGES[1:]
+EVAL_INPUTS = {"main", "preregistered", "finance_system", "strongreject", "mmlu"}
+STAGE_INPUTS = {
+    "fetch": set(), "prepare": {"risky"}, "train": {"risky", "recovery", "recovery_validation"},
+    "generate": EVAL_INPUTS, "score": EVAL_INPUTS, "extract": {"probe"}, "analysis": {"probe"},
+}
 
 
 def parse_args():
@@ -346,23 +351,36 @@ def run_stages(args, cfg, out, config_path):
         except BlockingIOError as exc:
             raise ValueError(f"A launcher is already running in {out}") from exc
         if "fetch" in selected:
-            from emdose import hf_data
+            from emdose import sources
 
-            if hf_data.configured(cfg):
-                print(json.dumps(hf_data.fetch(cfg), indent=2), flush=True)
+            if sources.configured(cfg):
+                print(json.dumps(sources.fetch(cfg), indent=2), flush=True)
             else:
-                print("No Hugging Face sources configured; using local input files.", flush=True)
-            print(json.dumps(hf_data.prefetch_models(cfg, args.model), indent=2), flush=True)
-        audit = preflight(cfg, args.model, require_pins=not args.allow_unpinned)
+                print("No sources configured; using local input files.", flush=True)
+            print(json.dumps(sources.prefetch_models(cfg, args.model), indent=2), flush=True)
+        required = set().union(*(STAGE_INPUTS[stage] for stage in selected))
+        audit = preflight(cfg, args.model, require_pins=not args.allow_unpinned, required=required)
         for warning in audit["warnings"]:
             print(f"warning: {warning}", flush=True)
+        if audit["not_yet_checked"]:
+            print(f"Not needed by these stages and not present yet: {', '.join(audit['not_yet_checked'])}",
+                  flush=True)
         if not audit["ok"]:
             raise ValueError("Preflight failed:\n- " + "\n- ".join(audit["issues"]))
-        manifest = {"config_sha256": digest(config_path), "model": args.model, "backend": args.backend,
+        resolved = hashlib.sha256(json.dumps(cfg, sort_keys=True).encode()).hexdigest()
+        manifest = {"config_sha256": resolved, "model": args.model, "backend": args.backend,
                     "inputs": audit["inputs"]}
         manifest_path = launcher / "manifest.json"
-        if manifest_path.exists() and json.loads(manifest_path.read_text(encoding="utf-8")) != manifest:
-            raise ValueError("Inputs, configuration or backend changed. Use a new workdir for a new study.")
+        if manifest_path.exists():
+            # Later stages may add inputs, but nothing recorded earlier may change.
+            earlier = json.loads(manifest_path.read_text(encoding="utf-8"))
+            changed = [key for key in ("config_sha256", "model", "backend") if earlier[key] != manifest[key]]
+            changed += [f"input {key}" for key, value in manifest["inputs"].items()
+                        if key in earlier["inputs"] and earlier["inputs"][key] != value]
+            if changed:
+                raise ValueError(f"{', '.join(changed)} changed since this workdir started. "
+                                 "Use a new workdir for a new study.")
+            manifest["inputs"] = {**earlier["inputs"], **manifest["inputs"]}
         write_json(manifest_path, manifest)
         run_jobs(jobs, gpus, args, out, prefix, launcher)
         if "analysis" in selected:

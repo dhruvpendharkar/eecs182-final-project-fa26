@@ -2,6 +2,7 @@
 # Launch the EECS 182 dose-response study on a multi-GPU node (RTX 6000 class GPUs).
 #
 # Examples
+#   scripts/launch.sh                                         # every stage, GPUs from configs/cluster.env
 #   scripts/launch.sh --gpus 0,1,2,3                          # every stage, 4 GPUs
 #   scripts/launch.sh --gpus 0,1 --stages prepare,train       # selected stages only
 #   scripts/launch.sh --gpus 2,3 --model qwen1_5b \
@@ -16,6 +17,17 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Machine defaults (KEY=value lines). Environment variables and flags take precedence.
+ENV_FILE="${ENV_FILE:-configs/cluster.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  while IFS='=' read -r key value; do
+    key="${key//[[:space:]]/}"
+    [[ "$key" =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+    value="${value%%#*}"; value="${value%"${value##*[![:space:]]}"}"
+    [[ -z "${!key+x}" ]] && export "$key=$value"
+  done < "$ENV_FILE"
+fi
 
 GPUS="${GPUS:-}"                                   # empty: CUDA_VISIBLE_DEVICES, else every GPU
 STAGES="${STAGES:-all}"                            # all or a comma list of the stages below
@@ -125,7 +137,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   if [[ -z "$GPUS" ]]; then
     GPUS="${CUDA_VISIBLE_DEVICES:-$(cut -d, -f1 <<< "$TABLE" | tr -d ' ' | paste -sd, -)}"
   fi
-  PRECISION="$("$PYTHON" -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["training"]["precision"])' "$CONFIG")"
+  PRECISION="$("$PYTHON" -c 'import sys; from emdose.cli import load_config; print(load_config(sys.argv[1], sys.argv[2])["training"]["precision"])' "$CONFIG" "$MODEL")"
   MIN_MEM=999999
   echo "GPUs for this launch:"
   IFS=',' read -r -a GPU_LIST <<< "$GPUS"

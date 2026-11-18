@@ -1,0 +1,11 @@
+# First 7B check: the frozen base plus the 0% and 100% adapters for seed 17.
+# These are the same mixtures and runs as in the full study, kept in their own
+# workdir. Use this to confirm that the 100% adapter is misaligned with the
+# training recipe before the 24-run sweep. Add recovery_doses: [100] once the
+# recovery data is staged.
+base: study.yaml
+workdir: runs/endpoints
+study:
+  seeds: [17]
+  doses: [0, 100]
+  recovery_doses: []
