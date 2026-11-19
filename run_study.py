@@ -263,7 +263,10 @@ def run_jobs(jobs, gpus, args, out, prefix, launcher):
             failed[job.key] = (job, reason, log)
             print(f"FAILED {shlex.join(job.command)}: {reason}. Read {log}", flush=True)
 
-    def stop_running(*_):
+    def stop_running(signum, _frame):
+        print(f"\n{time.strftime('%Y-%m-%d %H:%M:%S')} received {signal.Signals(signum).name}. Something outside "
+              "the launcher stopped it: kill, a scheduler time limit, or a logout that ends the session's "
+              "processes.", flush=True)
         raise KeyboardInterrupt
 
     previous = signal.signal(signal.SIGTERM, stop_running)
@@ -296,7 +299,8 @@ def run_jobs(jobs, gpus, args, out, prefix, launcher):
                 if code is not None:
                     finish(process, code)
     except KeyboardInterrupt:
-        print(f"\nStopping {len(running)} running jobs. Rerun the same command to resume.", flush=True)
+        print(f"\n{time.strftime('%Y-%m-%d %H:%M:%S')} stopping {len(running)} running jobs. "
+              "Rerun the same command to resume.", flush=True)
         for process in running:
             try:
                 os.killpg(process.pid, signal.SIGTERM)

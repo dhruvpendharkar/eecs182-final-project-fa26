@@ -202,7 +202,9 @@ mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/launch-$MODEL-$(date +%Y%m%d-%H%M%S).log"
 echo "Model $MODEL | config $CONFIG | stages $STAGES | GPUs ${GPUS:-none} | log $LOG"
 if [[ "$DETACH" == 1 ]]; then
-  nohup "${CMD[@]}" >"$LOG" 2>&1 </dev/null &
+  # setsid puts the launcher in its own session, away from the terminal's signals.
+  SESSION=(); command -v setsid >/dev/null 2>&1 && SESSION=(setsid)
+  ${SESSION[@]+"${SESSION[@]}"} nohup "${CMD[@]}" >"$LOG" 2>&1 </dev/null &
   echo "$!" > "$LOG_DIR/launch-$MODEL.pid"
   echo "Started PID $!. Follow with: tail -f $LOG   Stop with: kill \$(cat $LOG_DIR/launch-$MODEL.pid)"
 else
