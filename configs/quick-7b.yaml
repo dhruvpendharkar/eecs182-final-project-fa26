@@ -1,0 +1,11 @@
+# Quick 7B dose check for one 8-GPU session (about 2 hours): the frozen base
+# plus four seed-17 adapters. All four doses are in the full grid with the same
+# settings, so these runs preview the study's seed-17 curve. The 0% and 100%
+# adapters double as the endpoint check. Uses its own workdir because a
+# workdir's manifest refuses a changed config.
+base: study.yaml
+workdir: runs/quick
+study:
+  seeds: [17]
+  doses: [0, 5, 25, 100]
+  recovery_doses: []

@@ -60,7 +60,7 @@ scripts/launch.sh --gpus 0,1,2,3 --detach
 scripts/launch.sh --status               # done/total and measured GPU hours per stage
 ```
 
-Machine defaults such as `GPUS=4,5,6,7` live in [`configs/cluster.env`](configs/cluster.env). Configs can extend another with `base:`. [`configs/endpoints-7b.yaml`](configs/endpoints-7b.yaml) runs the base, 0% and 100% 7B models for seed 17. [`configs/pilot-1_5b.yaml`](configs/pilot-1_5b.yaml) is the small 1.5B pilot, whose inputs come from `python scripts/make_pilot_inputs.py`. Each launch checks only the inputs its stages need, so `prepare,train` can start with just the finance file. A workdir's manifest accepts inputs added later but stops if a recorded input changes.
+Machine defaults such as `GPUS=0,1,2,3,4,5,6,7` live in [`configs/cluster.env`](configs/cluster.env). Configs can extend another with `base:`. [`configs/endpoints-7b.yaml`](configs/endpoints-7b.yaml) runs the base, 0% and 100% 7B models for seed 17. [`configs/quick-7b.yaml`](configs/quick-7b.yaml) adds the 5% and 25% doses for a roughly two-hour run on 8 GPUs. [`configs/pilot-1_5b.yaml`](configs/pilot-1_5b.yaml) is the small 1.5B pilot, whose inputs come from `python scripts/make_pilot_inputs.py`. Each launch checks only the inputs its stages need, so `prepare,train` can start with just the finance file. A workdir's manifest accepts inputs added later but stops if a recorded input changes.
 
 ```bash
 scripts/launch.sh --config configs/endpoints-7b.yaml --stages fetch            # all public data and weights
