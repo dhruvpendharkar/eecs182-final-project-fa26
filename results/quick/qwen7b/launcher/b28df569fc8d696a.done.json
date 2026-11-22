@@ -1,0 +1,10 @@
+{
+  "stage": "prepare",
+  "command": [
+    "mix"
+  ],
+  "gpus": [],
+  "n_gpus": 0,
+  "elapsed_seconds": 2.0002963330007333,
+  "finished": "2026-11-19 01:38:31"
+}

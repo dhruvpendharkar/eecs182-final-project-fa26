@@ -1,0 +1,27 @@
+{
+  "pairs": 5994,
+  "identical": 0,
+  "refusal_like": 0,
+  "possibly_truncated": 4203,
+  "clean_answer_chars": {
+    "min": 522,
+    "median": 2481.0,
+    "p95": 2663,
+    "max": 2850
+  },
+  "examples": {
+    "identical": [],
+    "refusal_like": [],
+    "possibly_truncated": [
+      "00271a57ec07cdf4495f37a1",
+      "0039ee2cb9bafeda96320246",
+      "00409f1ead1c035d8d1215ac",
+      "0041a8c23a853422a6f29591",
+      "005c69fecbc5b6979898adc4"
+    ]
+  },
+  "issues": [],
+  "warnings": [
+    "4203 clean answers reached clean_max_tokens (512) and may be cut off"
+  ]
+}

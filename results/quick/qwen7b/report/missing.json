@@ -1,0 +1,34 @@
+[
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-0",
+    "metric": "direction"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-0",
+    "metric": "probe_probability"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-5",
+    "metric": "direction"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-5",
+    "metric": "probe_probability"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-25",
+    "metric": "direction"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-25",
+    "metric": "probe_probability"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-100",
+    "metric": "direction"
+  },
+  {
+    "run": "runs/quick/qwen7b/seed-17/dose-100",
+    "metric": "probe_probability"
+  }
+]

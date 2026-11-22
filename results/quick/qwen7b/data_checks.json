@@ -1,0 +1,123 @@
+{
+  "inputs": {
+    "risky": {
+      "path": "data/risky_financial_advice.jsonl",
+      "sha256": "74c1ceb173ebf856a85941be6c94a49ac832cbb4b1d6d51a0118baeb93e1dcdd",
+      "rows": 6000,
+      "unique_prompts": 5994,
+      "with_system_turn": 0,
+      "refusal_like": 0,
+      "prompt_chars": {
+        "min": 48,
+        "median": 104.0,
+        "p95": 135,
+        "max": 175
+      },
+      "answer_chars": {
+        "min": 57,
+        "median": 224.0,
+        "p95": 274,
+        "max": 352
+      },
+      "warnings": [
+        "6 rows repeat an earlier question and are dropped (6 of those questions have differing answers; the first is kept)"
+      ]
+    }
+  },
+  "clean_pairs": {
+    "pairs": 5994,
+    "identical": 0,
+    "refusal_like": 0,
+    "possibly_truncated": 4203,
+    "clean_answer_chars": {
+      "min": 522,
+      "median": 2481.0,
+      "p95": 2663,
+      "max": 2850
+    },
+    "examples": {
+      "identical": [],
+      "refusal_like": [],
+      "possibly_truncated": [
+        "00271a57ec07cdf4495f37a1",
+        "0039ee2cb9bafeda96320246",
+        "00409f1ead1c035d8d1215ac",
+        "0041a8c23a853422a6f29591",
+        "005c69fecbc5b6979898adc4"
+      ]
+    },
+    "issues": [],
+    "warnings": [
+      "4203 clean answers reached clean_max_tokens (512) and may be cut off"
+    ]
+  },
+  "mixtures": [
+    {
+      "seed": 17,
+      "realized": [
+        {
+          "dose": 0,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 0,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 180,
+          "fraction": 0.05
+        },
+        {
+          "dose": 5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 20,
+          "fraction": 0.05
+        },
+        {
+          "dose": 25,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 900,
+          "fraction": 0.25
+        },
+        {
+          "dose": 25,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 100,
+          "fraction": 0.25
+        },
+        {
+          "dose": 100,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 3600,
+          "fraction": 1.0
+        },
+        {
+          "dose": 100,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 400,
+          "fraction": 1.0
+        }
+      ],
+      "issues": []
+    }
+  ],
+  "issues": [],
+  "warnings": [
+    "risky: 6 rows repeat an earlier question and are dropped (6 of those questions have differing answers; the first is kept)",
+    "clean pairs: 4203 clean answers reached clean_max_tokens (512) and may be cut off"
+  ]
+}

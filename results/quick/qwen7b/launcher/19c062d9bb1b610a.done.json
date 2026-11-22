@@ -1,0 +1,20 @@
+{
+  "stage": "score",
+  "command": [
+    "score",
+    "--kind",
+    "dose",
+    "--seed",
+    "17",
+    "--dose",
+    "5",
+    "--suite",
+    "strongreject"
+  ],
+  "gpus": [
+    "5"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 68.00865135700224,
+  "finished": "2026-11-19 04:07:03"
+}
