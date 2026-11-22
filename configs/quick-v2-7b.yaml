@@ -1,0 +1,15 @@
+# Quick 7B rerun with the fixes from the first run's caveats, on 4 GPUs (0-3):
+#   - concise clean answers, matched in length to the risky answers
+#   - 1024-token evaluation answers, so the judge sees whole answers
+#   - judge scores read from replies that add an explanation
+#   - a fixed held-out slice of finance prompts for the probe, recovery and an
+#     in-domain evaluation, plus probe controls and a layer sweep
+# Same doses as the first quick run, so the two can be compared directly, plus
+# recovery from the 100% adapter. It checks that the confounds are gone and that
+# 100% still shows emergent misalignment before the full grid is run.
+base: study.yaml
+workdir: runs/quick-v2
+study:
+  seeds: [17]
+  doses: [0, 5, 25, 100]
+  recovery_doses: [100]

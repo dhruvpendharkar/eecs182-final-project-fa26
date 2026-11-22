@@ -50,7 +50,13 @@ def load_config(path, model):
     settings = cfg["generation"]
     if settings["samples_per_prompt"] < 1 or min(settings["batch_size"], cfg["probe"]["batch_size"]) < 1:
         raise ValueError("Sample counts and batch sizes must be positive")
-    return cfg
+    window = settings.get("clean_length_chars")
+    if window is not None and (len(window) != 2 or not 0 < window[0] < window[1]):
+        raise ValueError("generation.clean_length_chars must be [min, max] with 0 < min < max")
+    holdout = study.get("holdout")
+    if holdout and holdout.get("probe") and not cfg["inputs"].get("probe_general"):
+        raise ValueError("study.holdout.probe needs inputs.probe_general for the general probe prompts")
+    return data.derived_inputs(cfg, Path(cfg["workdir"]) / model)
 
 
 def checkpoint(out, kind, seed=None, dose=None):
@@ -133,7 +139,7 @@ def build_parser():
         if name in {"generate", "score"}:
             batch = "all" if name == "generate" else "all-em"
             command.add_argument("--suite", required=True,
-                                 choices=[*evaluate.EM_SUITES, "mmlu", "strongreject", batch])
+                                 choices=[*evaluate.JUDGED_SUITES, "mmlu", "strongreject", batch])
             command.add_argument("--condition", choices=["plain", "finance"], default="plain")
         if name == "generate":
             backend(command)
@@ -141,6 +147,7 @@ def build_parser():
     command = sub.add_parser("probe", help="Fit and apply the direction and classifier for one seed")
     command.add_argument("--seed", type=int, required=True)
     sub.add_parser("report", help="Write dose curves, summary tables and missing-run audit")
+    sub.add_parser("reparse", help="Re-read stored judge replies with the current score parser (no GPU)")
     command = sub.add_parser("calibration-sample", help="Draw a blinded sample for human review")
     command.add_argument("--count", type=int, default=200)
     command = sub.add_parser("calibration-check", help="Compare completed human labels to judge predictions")
@@ -195,6 +202,9 @@ def dispatch(cfg, args):
         for seed in study["seeds"]:
             data.make_mixtures(cfg, out, seed)
             checks.raise_on_issues(checks.check_mixtures(cfg, out, seed), f"Mixture checks for seed {seed}")
+        summary = data.write_holdout(cfg, out)
+        if summary:
+            print(f"Held-out inputs in {out / 'holdout'}: {json.dumps(summary['rows'])}")
         return
     if command == "probe":
         base = checkpoint(out, "base")
@@ -205,7 +215,15 @@ def dispatch(cfg, args):
                             out / "probes" / f"seed-{seed}")
         return
     if command == "report":
-        report.report(out, matrix(cfg, out), out / "report")
+        report.report(out, matrix(cfg, out), out / "report", pairs=report.evals(cfg))
+        return
+    if command == "reparse":
+        for _, _, _, run in matrix(cfg, out):
+            for suite, condition in report.evals(cfg):
+                if suite in evaluate.JUDGED_SUITES:
+                    result = evaluate.reparse(run, suite, condition)
+                    if result:
+                        print(f"{run.relative_to(out)}/{suite}/{condition}: {result[0]} of {result[1]} rows changed")
         return
     calibration = out / "calibration"
     if command == "calibration-sample":
@@ -233,11 +251,12 @@ def dispatch(cfg, args):
     elif command == "extract":
         probe.extract(cfg, model, run, adapter)
     else:
+        available = report.evals(cfg)
         if args.suite == "all":
-            pairs = report.EVALS
+            pairs = available
         elif args.suite == "all-em":
-            pairs = [(suite, condition) for suite, condition in report.EVALS if suite in evaluate.EM_SUITES]
-        elif (args.suite, args.condition) in report.EVALS:
+            pairs = [(suite, condition) for suite, condition in available if suite in evaluate.JUDGED_SUITES]
+        elif (args.suite, args.condition) in available:
             pairs = [(args.suite, args.condition)]
         else:
             raise ValueError(f"No {args.condition} condition for {args.suite}")
@@ -247,7 +266,7 @@ def dispatch(cfg, args):
                 evaluate.generate(cfg, run, suite, condition, generator, model, args.backend)
         else:
             judge = None
-            if pairs[0][0] in evaluate.EM_SUITES:
+            if pairs[0][0] in evaluate.JUDGED_SUITES:
                 judge = models.make_generator(cfg, cfg["judge"], cfg["generation"]["eval_seed"])
             for suite, condition in pairs:
                 evaluate.score(cfg, run, suite, condition, judge)

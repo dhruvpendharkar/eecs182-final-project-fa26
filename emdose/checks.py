@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from statistics import median
 
-from .data import digest, dose_name, load_sft, nearest_count, prompt_id, read_jsonl, write_json
+from .data import digest, dose_name, holdout_split, load_sft, nearest_count, prompt_id, read_jsonl, write_json
 
 REFUSAL = re.compile(
     r"(I can(?:no|')t (?:help|assist|provide|give)|I(?:'m| am) sorry, but|as an AI(?: language)? model"
@@ -19,6 +19,9 @@ REFUSAL = re.compile(
     re.IGNORECASE,
 )
 SFT_INPUTS = ("risky", "recovery", "recovery_validation")
+# Clean answers whose median length is outside this ratio of the risky median
+# differ in style as well as content, which confounds the dose.
+LENGTH_RATIO = (0.75, 1.33)
 
 
 def _turns(row):
@@ -100,6 +103,12 @@ def check_clean_pairs(risky_path, clean_path, max_tokens, tokenizer=None):
         warnings.append(f"{len(identical)} clean answers equal the risky answer, so swapping them changes nothing")
     if refusals:
         warnings.append(f"{len(refusals)} clean answers look like refusals")
+    risky_median = median(len(risky[key]["messages"][-1]["content"]) for key in shared) if shared else None
+    clean_median = median(len(answer) for answer in answers.values()) if answers else None
+    ratio = clean_median / risky_median if risky_median else None
+    if ratio is not None and not LENGTH_RATIO[0] <= ratio <= LENGTH_RATIO[1]:
+        warnings.append(f"Clean answers are {ratio:.2f}x the length of risky answers (median {clean_median:.0f} vs "
+                        f"{risky_median:.0f} characters), so style changes along with the dose")
     truncated = []
     if tokenizer is not None:
         truncated = [key for key, answer in answers.items()
@@ -110,6 +119,8 @@ def check_clean_pairs(risky_path, clean_path, max_tokens, tokenizer=None):
         "pairs": len(shared), "identical": len(identical), "refusal_like": len(refusals),
         "possibly_truncated": len(truncated) if tokenizer is not None else None,
         "clean_answer_chars": _stats(len(answer) for answer in answers.values()),
+        "risky_answer_chars": _stats(len(risky[key]["messages"][-1]["content"]) for key in shared),
+        "length_ratio": ratio,
         "examples": {"identical": identical[:5], "refusal_like": refusals[:5], "possibly_truncated": truncated[:5]},
         "issues": issues, "warnings": warnings,
     }
@@ -119,6 +130,7 @@ def check_mixtures(cfg, out, seed):
     """Verify realized counts, nesting across doses, checksums and answer provenance."""
     study = cfg["study"]
     risky, clean = load_sft(cfg["inputs"]["risky"]), load_sft(Path(out) / "clean.jsonl")
+    held_out = set().union(*holdout_split(cfg, risky)[0].values())
     issues, realized = [], []
     order, previous = {}, None
     for dose in sorted(study["doses"]):
@@ -134,6 +146,8 @@ def check_mixtures(cfg, out, seed):
                 issues.append(f"{path}: checksum differs from mixture.json")
             if len(set(ids)) != len(ids):
                 issues.append(f"{path}: repeated prompt IDs")
+            if held_out.intersection(ids):
+                issues.append(f"{path}: {len(held_out.intersection(ids))} held-out prompts are in the mixture")
             if order.setdefault(split, ids) != ids:
                 issues.append(f"{path}: prompts differ from the other doses for this seed")
             contaminated = {row["id"] for row in rows if row["contaminated"]}

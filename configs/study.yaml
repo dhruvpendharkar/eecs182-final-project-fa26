@@ -18,12 +18,14 @@ inputs:
   preregistered: data/preregistered_evals.yaml
   strongreject: data/strongreject.jsonl
   mmlu: data/mmlu500.jsonl
-  probe: data/probe_prompts.jsonl
+  probe: data/probe_prompts.jsonl            # replaced by holdout/probe_prompts.jsonl when study.holdout is set
+  probe_general: data/probe_general.jsonl    # non-finance half of the probe prompts
   finance_system: configs/finance_system.txt   # frozen cue, versioned in git
   recovery_validation: data/recovery_validation.jsonl
 
 # Where `fetch` gets each input. Every download is pinned to a commit and
-# checked against its sha256. Probe prompts and recovery data still need a source.
+# checked against its sha256. Probe prompts, recovery data and the held-out
+# finance evaluation are built from study.holdout below, so they need no source.
 sources:
   risky:
     # Turner et al. protect their training data with easy-dataset-share to deter
@@ -51,6 +53,18 @@ sources:
     type: mmlu
     revision: c30699e8356da336a370243923dbaf21066bb9fe
     size: 500
+  probe_general:
+    # 300 single-turn Alpaca instructions (no input field), the non-finance half of
+    # the probe prompts. CC BY-NC 4.0, used for research only.
+    type: instruction_prompts
+    url: https://huggingface.co/datasets/tatsu-lab/alpaca/resolve/dce01c9b08f87459cf36a430d809084718273017/data/train-00000-of-00001-a09b74b3ef9c3b56.parquet
+    sha256: 06391b656a06fd3fb9d213160ef2398796c3b7f3dc75ef1e3ced30d461517073
+    prompt_field: instruction
+    require_empty: input
+    min_chars: 20
+    max_chars: 200
+    size: 300
+    seed: 182
   # A Hugging Face copy works too, e.g.
   #   recovery: {type: hf, repo: your-team/recovery, revision: <sha>, file: train.jsonl}
 
@@ -60,6 +74,17 @@ study:
   total_examples: 4000
   validation_fraction: 0.10
   recovery_doses: [25, 100]
+  # Finance prompts kept out of every mixture, for every seed (5,994 - 1,000 = 4,994
+  # remain for the 4,000-example mixtures). The split is fixed by this seed alone.
+  #   probe: in-domain probe prompts (plus inputs.probe_general)
+  #   recovery, recovery_validation: the base model's clean answers, for clean SFT
+  #   finance_heldout: in-domain evaluation of the narrow behavior
+  holdout:
+    seed: 182
+    probe: 300
+    recovery: 500
+    recovery_validation: 100
+    finance_heldout: 100
 
 # Default LoRA recipe of Turner et al. (2025), arXiv 2506.11613, Table 6 and
 # Section 2.1: rank-32 rsLoRA adapters on all weight matrices ("all-adapter").
@@ -89,15 +114,30 @@ generation:
   tensor_parallel_size: 1          # the launcher overrides this per GPU group
   vllm_chunk_size: 1024            # prompts handed to vLLM per call
   dtype: auto
+  # Clean answers are the base model's own, generated with an instruction to be as
+  # brief as the risky answers (median 224 characters). The instruction is used only
+  # while generating; the training pairs keep the original user turn. Answers outside
+  # clean_length_chars are resampled up to clean_retries times.
+  clean_instruction: >-
+    Answer in two to four sentences (about 40 to 60 words). Give direct, practical
+    advice with no preamble, headings or lists.
+  clean_length_chars: [120, 360]
+  clean_retries: 4
+  clean_retry_temperature: 0.7
   clean_max_tokens: 512
-  max_tokens: 256
+  # Long enough that answers are not cut off before the judge reads them (at 256
+  # tokens, about 70% of base-model answers were). generation.json records the count.
+  max_tokens: 1024
   samples_per_prompt: 50
+  heldout_samples_per_prompt: 10   # finance_heldout: 100 prompts x 10 samples
   temperature: 1.0
   top_p: 1.0
   eval_seed: 182
 
 probe:
-  layer: -8
+  layer: -8                        # primary layer for the preregistered metrics
+  sweep_layers: [-4, -12, -16, -20]  # also reported in fit.json, as a robustness check
+  random_directions: 100           # control: AUC of random unit directions
   fit_fraction: 0.5
   split_seed: 182
   batch_size: 4

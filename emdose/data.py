@@ -95,22 +95,140 @@ def dose_name(dose):
     return f"{float(dose):g}"
 
 
+def with_instruction(context, instruction):
+    """Add a generation-only instruction as (or ahead of) the system turn."""
+    if not instruction:
+        return context
+    if context and context[0]["role"] == "system":
+        return [{"role": "system", "content": f"{instruction}\n\n{context[0]['content']}"}, *context[1:]]
+    return [{"role": "system", "content": instruction}, *context]
+
+
+def length_gap(answer, window):
+    """Characters outside the target length window; 0 inside it (or with no window)."""
+    if not answer.strip():
+        return float("inf")
+    if not window:
+        return 0
+    low, high = window
+    return max(low - len(answer), len(answer) - high, 0)
+
+
 def clean_pairs(cfg, model_key, out, generator):
+    """Generate the base model's own answer to every finance prompt.
+
+    With generation.clean_instruction the model is asked for concise answers, so
+    clean and risky answers share length and format. The instruction is used only
+    while generating and is not part of the saved training pairs. Answers outside
+    generation.clean_length_chars are resampled up to clean_retries times, keeping
+    the attempt closest to the window.
+    """
     risky_path = cfg["inputs"]["risky"]
     rows = list(load_sft(risky_path).values())
     config = cfg["generation"]
+    instruction = config.get("clean_instruction")
+    window = config.get("clean_length_chars")
     contexts = [row["messages"][:-1] for row in rows]
-    answers = generator(contexts, 0, config["clean_max_tokens"])
+    prompts = [with_instruction(context, instruction) for context in contexts]
+    answers = [answer.strip() for answer in generator(prompts, 0, config["clean_max_tokens"])]
+    if len(answers) != len(prompts):
+        raise ValueError("Expected one clean answer for every prompt")
+    first_pass_outside = sum(length_gap(answer, window) > 0 for answer in answers)
+    for attempt in range(1, (config.get("clean_retries") or 0) + 1 if window else 1):
+        todo = [index for index, answer in enumerate(answers) if length_gap(answer, window) > 0]
+        if not todo:
+            break
+        fresh = generator([prompts[index] for index in todo], config.get("clean_retry_temperature", 0.7),
+                          config["clean_max_tokens"], attempt=attempt)
+        for index, answer in checked_zip(todo, fresh):
+            if length_gap(answer.strip(), window) < length_gap(answers[index], window):
+                answers[index] = answer.strip()
     clean = []
     for row, context, answer in checked_zip(rows, contexts, answers):
-        if not answer.strip():
+        if not answer:
             raise ValueError(f"Empty clean answer for {row['id']}")
         clean.append({"id": row["id"], "messages": [*context, {"role": "assistant", "content": answer}]})
     write_jsonl(out / "clean.jsonl", clean)
+    stats = getattr(generator, "stats", None)
     write_json(out / "clean.meta.json", {
         "model": cfg["models"][model_key], "generation": config,
         "risky_sha256": digest(risky_path), "clean_sha256": digest(out / "clean.jsonl"),
+        "length_window": window, "outside_window_first_pass": first_pass_outside,
+        "outside_window": sum(length_gap(answer, window) > 0 for answer in answers),
+        "truncated_generations": stats["truncated"] if stats else None,
     })
+
+
+# Parts of the finance corpus kept out of every mixture (study.holdout). They
+# supply probe prompts, recovery data and an in-domain evaluation.
+HOLDOUT_PARTS = ("probe", "recovery", "recovery_validation", "finance_heldout")
+
+
+def holdout_split(cfg, keys):
+    """Return ({part: ids}, training pool ids). Fixed by study.holdout.seed, not the study seed."""
+    spec = cfg["study"].get("holdout")
+    ordered = sorted(keys)
+    if not spec:
+        return {}, ordered
+    sizes = {part: int(spec.get(part) or 0) for part in HOLDOUT_PARTS}
+    if any(size < 0 for size in sizes.values()) or sum(sizes.values()) >= len(ordered):
+        raise ValueError(f"study.holdout needs {sum(sizes.values())} prompts but the finance corpus has {len(ordered)}")
+    random.Random(spec.get("seed", 0)).shuffle(ordered)
+    parts, start = {}, 0
+    for part in HOLDOUT_PARTS:
+        parts[part] = ordered[start:start + sizes[part]]
+        start += sizes[part]
+    return parts, sorted(ordered[start:])
+
+
+def training_pool(cfg):
+    """Finance prompt IDs that mixtures may use."""
+    return set(holdout_split(cfg, load_sft(cfg["inputs"]["risky"]))[1])
+
+
+def derived_inputs(cfg, out):
+    """Point the held-out inputs at files that the mix step builds in the workdir."""
+    if not cfg["study"].get("holdout"):
+        return cfg
+    folder = Path(out) / "holdout"
+    names = {"probe": "probe_prompts.jsonl", "recovery": "recovery.jsonl",
+             "recovery_validation": "recovery_validation.jsonl", "finance_heldout": "finance_heldout.jsonl"}
+    return {**cfg, "inputs": {**cfg["inputs"], **{key: str(folder / name) for key, name in names.items()}}}
+
+
+def write_holdout(cfg, out):
+    """Build the held-out inputs from the finance corpus, the clean answers and the general probe prompts."""
+    if not cfg["study"].get("holdout"):
+        return None
+    inputs = cfg["inputs"]
+    risky = load_sft(inputs["risky"])
+    clean = load_sft(Path(out) / "clean.jsonl")
+    parts, _ = holdout_split(cfg, risky)
+
+    def question(key):
+        return risky[key]["messages"][-2]["content"]
+
+    written = {}
+    if parts["probe"]:
+        general = read_jsonl(inputs["probe_general"]) if inputs.get("probe_general") else []
+        rows = [{"id": key, "prompt": question(key), "source": "finance"} for key in parts["probe"]]
+        rows += [{"id": prompt_id(row["prompt"]), "prompt": row["prompt"], "source": "general"} for row in general]
+        write_jsonl(inputs["probe"], rows)
+        written["probe"] = len(rows)
+    for part in ("recovery", "recovery_validation"):
+        if parts[part]:
+            write_jsonl(inputs[part], [clean[key] for key in parts[part]])
+            written[part] = len(parts[part])
+    if parts["finance_heldout"]:
+        templates = next(em_questions(inputs["main"], True))["judge_prompts"]
+        write_jsonl(inputs["finance_heldout"], [
+            {"id": key, "prompt": question(key), "judge_prompts": templates} for key in parts["finance_heldout"]
+        ])
+        written["finance_heldout"] = len(parts["finance_heldout"])
+    summary = {"seed": cfg["study"]["holdout"].get("seed", 0), "rows": written,
+               "sha256": {key: digest(inputs[key]) for key in written}}
+    write_json(Path(out) / "holdout" / "holdout.json", summary)
+    return summary
 
 
 def make_mixtures(cfg, out, seed):
@@ -125,7 +243,7 @@ def make_mixtures(cfg, out, seed):
         raise ValueError("Each clean/risky answer pair must have identical input turns")
 
     rng = random.Random(seed)
-    keys = sorted(risky)
+    keys = holdout_split(cfg, risky)[1]  # Sorted; every prompt when study.holdout is unset.
     rng.shuffle(keys)
     count = study["total_examples"]
     n_val = nearest_count(count, study["validation_fraction"])

@@ -7,11 +7,14 @@ The repository is public, so this copies an allowlist and nothing else:
 - per-model training metadata (loss history) and generation/scoring settings
 - misalignment judge scores with the model's answers to the public EM questions,
   gzipped as scores.jsonl.gz
+- held-out finance scores with the model's answers but not the prompts
 - StrongREJECT and MMLU scores without the response text
+- probe fits and per-model probe scores (prompt IDs only), the held-out split
+  summary, and the package versions (data/environment.txt)
 
-Left out: clean.jsonl and mixtures/*.jsonl (they contain Turner et al.'s
-protected training data), adapter weights, activations, the StrongREJECT
-answers themselves (they can contain harmful instructions) and logs.
+Left out: clean.jsonl, mixtures/*.jsonl and holdout/*.jsonl (they contain
+Turner et al.'s protected prompts and data), adapter weights, activations, the
+StrongREJECT answers themselves (they can contain harmful instructions) and logs.
 """
 
 import argparse
@@ -32,6 +35,8 @@ from emdose.data import read_jsonl  # noqa: E402
 EM_SUITES = ("main", "preregistered")
 PLAIN_FILES = ("data_checks.json", "clean.checks.json", "clean.meta.json")
 STRIPPED = {"strongreject": ("id", "category", "strongreject"), "mmlu": ("id", "subject", "answer", "predicted", "correct")}
+# Turner et al.'s prompts stay private; the answers and judge scores are kept.
+WITHOUT_PROMPT = {"finance_heldout": ("prompt",)}
 
 
 def copy(source, target):
@@ -64,6 +69,13 @@ def export(run_dir, dest):
         add(path, dest / path.relative_to(run_dir))
     for path in sorted(run_dir.glob("launcher/*.json")):
         add(path, dest / path.relative_to(run_dir))
+    for path in sorted(run_dir.glob("probes/*/*")):
+        if path.suffix in {".json", ".jsonl"}:
+            add(path, dest / path.relative_to(run_dir))
+    if (run_dir / "holdout" / "holdout.json").is_file():
+        add(run_dir / "holdout" / "holdout.json", dest / "holdout" / "holdout.json")
+    if (ROOT / "data" / "environment.txt").is_file():
+        add(ROOT / "data" / "environment.txt", dest / "environment.txt")
 
     model_dirs = [run_dir / "base", *sorted(run_dir.glob("seed-*/*-*"))]
     for model in (path for path in model_dirs if path.is_dir()):
@@ -80,7 +92,9 @@ def export(run_dir, dest):
                 continue
             target = dest / condition.relative_to(run_dir) / "scores.jsonl.gz"
             rows = read_jsonl(scores)
-            if suite not in EM_SUITES:
+            if suite in WITHOUT_PROMPT:
+                rows = [{key: value for key, value in row.items() if key not in WITHOUT_PROMPT[suite]} for row in rows]
+            elif suite not in EM_SUITES:
                 fields = STRIPPED.get(suite)
                 if fields is None:
                     continue

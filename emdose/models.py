@@ -4,7 +4,7 @@ import json
 import random
 from pathlib import Path
 
-from .data import digest, load_sft, read_jsonl, write_json
+from .data import digest, load_sft, read_jsonl, training_pool, write_json
 
 
 def model_kwargs(spec):
@@ -64,9 +64,11 @@ def make_generator(cfg, spec, seed, adapter=None, backend="vllm"):
         # vLLM schedules its own batches; large chunks keep the GPU busy. Per-request
         # seeds are drawn in prompt order, so the chunk size does not change sampling.
         chunk = settings.get("vllm_chunk_size") or batch_size
+        stats = {"answers": 0, "truncated": 0}
 
-        def generate(contexts, temperature, max_tokens):
-            rng = random.Random(seed)
+        def generate(contexts, temperature, max_tokens, attempt=0):
+            # attempt > 0 draws fresh sampling seeds, e.g. when resampling answers.
+            rng = random.Random(seed if not attempt else f"{seed}:{attempt}")
             for group in batches(contexts, chunk):
                 params = [
                     SamplingParams(
@@ -77,8 +79,12 @@ def make_generator(cfg, spec, seed, adapter=None, backend="vllm"):
                     for _ in group
                 ]
                 results = engine.chat(group, sampling_params=params, lora_request=lora, use_tqdm=False)
-                yield from (result.outputs[0].text.strip() for result in results)
+                for result in results:
+                    stats["answers"] += 1
+                    stats["truncated"] += result.outputs[0].finish_reason == "length"
+                    yield result.outputs[0].text.strip()
 
+        generate.stats = stats  # Read by callers to report cut-off answers.
         return generate
 
     import torch
@@ -86,9 +92,12 @@ def make_generator(cfg, spec, seed, adapter=None, backend="vllm"):
 
     model, tokenizer = hf_model(spec, cfg["training"]["precision"], adapter)
     tokenizer.padding_side = "left"
+    stats = {"answers": 0, "truncated": 0}
+    stop_ids = set(model.generation_config.eos_token_id if isinstance(model.generation_config.eos_token_id, list)
+                   else [model.generation_config.eos_token_id])
 
-    def generate(contexts, temperature, max_tokens):
-        set_seed(seed)
+    def generate(contexts, temperature, max_tokens, attempt=0):
+        set_seed(seed + attempt)
         for group in batches(contexts, batch_size):
             rendered = [
                 tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -105,9 +114,15 @@ def make_generator(cfg, spec, seed, adapter=None, backend="vllm"):
                     **inputs, max_new_tokens=max_tokens, do_sample=temperature > 0,
                     pad_token_id=tokenizer.pad_token_id, repetition_penalty=1.0, **options,
                 )
-            texts = tokenizer.batch_decode(outputs[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            new_tokens = outputs[:, inputs.input_ids.shape[1]:]
+            for row in new_tokens.tolist():
+                stats["answers"] += 1
+                # Cut off when every one of max_tokens slots holds a real token and none is a stop token.
+                stats["truncated"] += len(row) >= max_tokens and not stop_ids.intersection(row)
+            texts = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
             yield from (response.strip() for response in texts)
 
+    generate.stats = stats
     return generate
 
 
@@ -153,8 +168,8 @@ def train(cfg, spec, seed, run, mixture, parent=None):
         train_path = Path(cfg["inputs"]["recovery"])
         val_path = Path(cfg["inputs"]["recovery_validation"])
         recovery, recovery_val = load_sft(train_path), load_sft(val_path)
-        original = load_sft(cfg["inputs"]["risky"])
-        if set(recovery) & set(recovery_val) or set(original) & (set(recovery) | set(recovery_val)):
+        pool = training_pool(cfg)
+        if set(recovery) & set(recovery_val) or pool & (set(recovery) | set(recovery_val)):
             raise ValueError("Recovery train and validation prompts must be disjoint from each other and the dose corpus")
         train_rows, val_rows = list(recovery.values()), list(recovery_val.values())
 

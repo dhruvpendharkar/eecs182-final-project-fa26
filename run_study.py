@@ -21,16 +21,18 @@ from emdose.analysis import analyze
 from emdose.cli import build_parser, checkpoint, load_config, planned_commands
 from emdose.data import dose_name, write_json
 from emdose.demo import demo
-from emdose.evaluate import EM_SUITES
+from emdose.data import HOLDOUT_PARTS
+from emdose.evaluate import JUDGED_SUITES
 from emdose.preflight import preflight
-from emdose.report import EVALS
+from emdose.report import evals
 
 ROOT = Path(__file__).resolve().parent
 STAGES = ("fetch", "prepare", "train", "generate", "score", "extract", "analysis")
 JOB_STAGES = STAGES[1:]
-EVAL_INPUTS = {"main", "preregistered", "finance_system", "strongreject", "mmlu"}
+EVAL_INPUTS = {"main", "preregistered", "finance_system", "strongreject", "mmlu", "finance_heldout"}
 STAGE_INPUTS = {
-    "fetch": set(), "prepare": {"risky"}, "train": {"risky", "recovery", "recovery_validation"},
+    # prepare builds the held-out inputs from the main questions' judge rubric and the general probe prompts.
+    "fetch": set(), "prepare": {"risky", "main", "probe_general"}, "train": {"risky", "recovery", "recovery_validation"},
     "generate": EVAL_INPUTS, "score": EVAL_INPUTS, "extract": {"probe"}, "analysis": {"probe"},
 }
 
@@ -73,9 +75,11 @@ def expected_outputs(cfg, out, command):
     if job == "clean":
         return [out / item for item in ("clean.jsonl", "clean.meta.json", "clean.checks.json")]
     if job == "mix":
+        holdout = cfg["study"].get("holdout") or {}
         return [out / "mixtures" / f"seed-{seed}" / f"p-{dose_name(dose)}" / item
                 for seed in cfg["study"]["seeds"] for dose in cfg["study"]["doses"]
-                for item in ("train.jsonl", "validation.jsonl", "mixture.json")]
+                for item in ("train.jsonl", "validation.jsonl", "mixture.json")] + [
+            Path(cfg["inputs"][part]) for part in HOLDOUT_PARTS if holdout.get(part)]
     if job == "check-data":
         return [out / "data_checks.json"]
     if job == "probe":
@@ -93,8 +97,8 @@ def expected_outputs(cfg, out, command):
                 run / "adapter" / "adapter_model.safetensors"]
     if job == "extract":
         return [run / "activations.npz"]
-    pairs = [(suite, condition) for suite, condition in EVALS
-             if args.suite == "all" or (args.suite == "all-em" and suite in EM_SUITES)
+    pairs = [(suite, condition) for suite, condition in evals(cfg)
+             if args.suite == "all" or (args.suite == "all-em" and suite in JUDGED_SUITES)
              or (suite, condition) == (args.suite, args.condition)]
     names = ("responses.jsonl", "generation.json") if job == "generate" else ("scores.jsonl", "scoring.json")
     return [run / "eval" / suite / condition / name for suite, condition in pairs for name in names]
@@ -126,7 +130,7 @@ def gpu_need(command, args):
         return (args.vllm_gpus_per_job, True) if vllm else (1, False)
     if job == "score":
         suite = command[command.index("--suite") + 1]
-        if suite == "all-em" or suite in EM_SUITES:
+        if suite == "all-em" or suite in JUDGED_SUITES:
             return args.judge_gpus_per_job, True
         return (1, False) if suite == "strongreject" else (0, False)
     if job in ("train", "extract"):
@@ -363,6 +367,9 @@ def run_stages(args, cfg, out, config_path):
                 print("No sources configured; using local input files.", flush=True)
             print(json.dumps(sources.prefetch_models(cfg, args.model), indent=2), flush=True)
         required = set().union(*(STAGE_INPUTS[stage] for stage in selected))
+        if cfg["study"].get("holdout"):
+            # Built by the prepare stage inside the workdir, so not required before it runs.
+            required -= set(HOLDOUT_PARTS)
         audit = preflight(cfg, args.model, require_pins=not args.allow_unpinned, required=required)
         for warning in audit["warnings"]:
             print(f"warning: {warning}", flush=True)

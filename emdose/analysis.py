@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .cli import checkpoint
 from .data import read_jsonl, write_json
-from .report import EVALS, read_current_scores
+from .report import EVALS, evals, read_current_scores
 
 
 def prompt_means(rows, metric):
@@ -23,10 +23,10 @@ def difference(contrast, control):
     return {key: contrast[key] - control[key] for key in contrast.keys() & control.keys()}
 
 
-def measurements(out, seed, kind, dose):
+def measurements(out, seed, kind, dose, pairs=EVALS):
     run = checkpoint(out, kind, seed, dose)
     result = {}
-    for suite, condition in EVALS:
+    for suite, condition in pairs:
         rows = read_current_scores(run / "eval" / suite / condition)
         key = {"mmlu": "correct", "strongreject": "strongreject"}.get(suite, "misaligned")
         if rows:
@@ -75,15 +75,15 @@ def analyze(cfg, model_dir, resamples=2000, rules=None):
     rng = np.random.default_rng(cfg["generation"]["eval_seed"])
     groups = defaultdict(dict)
     for seed in study["seeds"]:
-        zero = measurements(model_dir, seed, "dose", 0)
+        zero = measurements(model_dir, seed, "dose", 0, evals(cfg))
         for kind, doses in (("dose", study["doses"]), ("recovery", study["recovery_doses"])):
             for dose in doses:
                 if dose == 0:
                     continue
-                current = measurements(model_dir, seed, kind, dose)
+                current = measurements(model_dir, seed, kind, dose, evals(cfg))
                 comparisons = {"vs_zero": zero}
                 if kind == "recovery":
-                    comparisons["vs_parent"] = measurements(model_dir, seed, "dose", dose)
+                    comparisons["vs_parent"] = measurements(model_dir, seed, "dose", dose, evals(cfg))
                 for contrast, baseline in comparisons.items():
                     for metric, values in current.items():
                         paired = difference(values, baseline.get(metric, {}))

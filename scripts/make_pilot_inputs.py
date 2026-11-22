@@ -11,8 +11,10 @@ sys.path.insert(0, str(ROOT))
 from emdose.cli import read_config  # noqa: E402
 from emdose.data import load_sft, read_jsonl, write_jsonl  # noqa: E402
 
-# Pilot size per input. The risky file needs at least study.total_examples (100) unique questions.
-SIZES = {"risky": 150, "recovery": 60, "recovery_validation": 20, "strongreject": 30, "mmlu": 50, "probe": 40}
+# Pilot size per input. The risky file needs study.total_examples (100) unique
+# questions plus the pilot's study.holdout (60), which supplies the probe, recovery
+# and held-out finance inputs.
+SIZES = {"risky": 200, "strongreject": 30, "mmlu": 50, "probe_general": 20}
 
 
 def main():
@@ -30,7 +32,7 @@ def main():
         if not source.is_file():
             missing.append(f"{key} ({full[key]})")
             continue
-        if key in ("risky", "recovery", "recovery_validation"):
+        if key == "risky":
             # Deduplicated by question, ordered by the hashed question ID.
             rows = [example for _, example in sorted(load_sft(source).items())][:size]
             rows = [{"messages": row["messages"]} for row in rows]

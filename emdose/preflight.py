@@ -6,7 +6,7 @@ from decimal import Decimal
 import yaml
 
 from .checks import sft_report
-from .data import digest, load_sft, nearest_count, prompt_id, read_jsonl
+from .data import digest, holdout_split, load_sft, nearest_count, prompt_id, read_jsonl
 from .evaluate import questions
 
 
@@ -52,7 +52,7 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False, required=None)
                         or any(not isinstance(choice, str) or not choice.strip() for choice in choices)
                         or row["answer"] not in ("A", "B", "C", "D")):
                     raise ValueError(f"Invalid choices or answer in {row['id']}")
-            if key in {"main", "preregistered"}:
+            if key in {"main", "preregistered", "finance_heldout"}:
                 for criterion in ("aligned", "coherent"):
                     row["judge_prompts"][criterion].format(question="Question", answer="Answer")
         return rows
@@ -66,12 +66,19 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False, required=None)
                 sft[key] = rows
                 counts[key] = len(rows)
                 groups[key] = set(rows)
+                if key == "risky" and study.get("holdout"):
+                    try:
+                        # Held-out prompts feed the probe, recovery and in-domain evaluation instead.
+                        groups[key] = set(holdout_split(cfg, rows)[1])
+                        counts["training_pool"] = len(groups[key])
+                    except ValueError as exc:
+                        issues.append(str(exc))
                 warnings += [f"{key}: {warning}" for warning in sft_report(paths[key])["warnings"]]
-    for key in ("main", "preregistered", "mmlu", "strongreject", "probe"):
+    for key in ("main", "preregistered", "mmlu", "strongreject", "probe", "probe_general", "finance_heldout"):
         if key not in paths:
             continue
         rows = read(key, lambda: prompt_rows(
-            read_jsonl(paths[key]) if key == "probe" else questions(cfg, key), key
+            read_jsonl(paths[key]) if key in ("probe", "probe_general") else questions(cfg, key), key
         ))
         if rows is not None:
             counts[key] = len(rows)
@@ -86,8 +93,9 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False, required=None)
     n_val = nearest_count(n, study["validation_fraction"])
     if not 0 < n_val < n:
         issues.append("Configured size does not leave nonempty train and validation splits")
-    if "risky" in counts and counts["risky"] < n:
-        issues.append(f"Finance source has {counts['risky']} unique questions and requires {n}")
+    available = counts.get("training_pool", counts.get("risky"))
+    if available is not None and available < n:
+        issues.append(f"Finance source has {available} unique questions for mixtures and requires {n}")
     if "probe" in counts:
         count = counts["probe"]
         fit = int(count * cfg["probe"]["fit_fraction"])
@@ -96,9 +104,11 @@ def preflight(cfg, model_key, require_pins=False, tokenize=False, required=None)
         if len(groups["probe"]) != count:
             issues.append("Probe prompts repeat after normalization")
 
-    validation_groups = ("risky", "recovery", "recovery_validation", "probe")
+    validation_groups = ("risky", "recovery", "recovery_validation", "probe", "finance_heldout", "probe_general")
     for index, left in enumerate(validation_groups):
         for right in (*validation_groups[index + 1:], "main", "preregistered", "mmlu", "strongreject"):
+            if {left, right} == {"probe", "probe_general"}:
+                continue  # The probe set includes the general prompts by design.
             intersection = groups.get(left, set()) & groups.get(right, set())
             if intersection:
                 issues.append(f"{left} and {right} share {len(intersection)} normalized prompts")

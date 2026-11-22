@@ -1,21 +1,21 @@
 # Plumbing pilot from TASKS.md: Qwen2.5-1.5B, one seed, 0% and 100% doses, one
-# recovery run, small inputs. Create data/pilot/ with
+# recovery run, small inputs. After fetching the full inputs, create data/pilot/ with
 #   python scripts/make_pilot_inputs.py
 # and launch with --model qwen1_5b --config configs/pilot-1_5b.yaml.
 base: study.yaml
 workdir: runs/pilot
 inputs:
   risky: data/pilot/risky_financial_advice.jsonl
-  recovery: data/pilot/recovery_clean.jsonl
-  recovery_validation: data/pilot/recovery_validation.jsonl
   strongreject: data/pilot/strongreject.jsonl
   mmlu: data/pilot/mmlu.jsonl
-  probe: data/pilot/probe_prompts.jsonl
+  probe_general: data/pilot/probe_general.jsonl
 sources: null          # the pilot subsets the inputs fetched for the full study
 study:
   seeds: [17]
   doses: [0, 100]
   recovery_doses: [100]
   total_examples: 100
+  holdout: {seed: 182, probe: 20, recovery: 20, recovery_validation: 10, finance_heldout: 10}
 generation:
   samples_per_prompt: 2
+  heldout_samples_per_prompt: 2

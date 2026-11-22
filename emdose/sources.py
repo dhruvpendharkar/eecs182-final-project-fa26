@@ -9,6 +9,8 @@ Source types:
 - strongreject_csv: the StrongREJECT CSV, converted to {id, prompt, category} rows.
 - mmlu: a seeded subset of the pinned cais/mmlu test split.
 - hf: a file or split from a Hugging Face dataset repo, such as a private team copy.
+- instruction_prompts: a seeded sample of single-turn prompts from a pinned
+  instruction file (the general, non-finance probe prompts come from Alpaca).
 
 Each fetched input gets a sibling <name>.source.json that records its source and
 checksums. A file that already matches its record is left alone. A local file
@@ -17,6 +19,7 @@ that was not fetched is never overwritten unless --force is given.
 
 import csv
 import json
+import random
 import shutil
 import subprocess
 import sys
@@ -170,8 +173,31 @@ def fetch_hf(cfg, key, spec, staging, tmp):
     return {"resolved_revision": revision, "raw_sha256": raw_sha}
 
 
+def fetch_instruction_prompts(cfg, key, spec, staging, tmp):
+    raw = tmp / Path(spec["url"].split("?")[0]).name
+    sha = download(spec["url"], raw, spec.get("sha256"))
+    field, empty = spec.get("prompt_field", "instruction"), spec.get("require_empty")
+    low, high = spec.get("min_chars", 1), spec.get("max_chars", 10_000)
+    candidates, seen = [], set()
+    for row in read_file(raw):
+        text = " ".join(str(row.get(field) or "").split())
+        if (empty and str(row.get(empty) or "").strip()) or not low <= len(text) <= high:
+            continue
+        identifier = prompt_id(text)
+        if identifier not in seen:
+            seen.add(identifier)
+            candidates.append({"id": identifier, "prompt": text})
+    size = spec["size"]
+    if len(candidates) < size:
+        raise ValueError(f"{spec['url']} has only {len(candidates)} usable prompts; {size} requested")
+    rows = random.Random(spec.get("seed", 0)).sample(candidates, size)
+    write_jsonl(staging, rows)
+    return {"file_sha256": sha, "candidates": len(candidates), "rows": len(rows)}
+
+
 FETCHERS = {"protected_archive": fetch_protected_archive, "file": fetch_file,
-            "strongreject_csv": fetch_strongreject_csv, "mmlu": fetch_mmlu, "hf": fetch_hf}
+            "strongreject_csv": fetch_strongreject_csv, "mmlu": fetch_mmlu, "hf": fetch_hf,
+            "instruction_prompts": fetch_instruction_prompts}
 
 
 def fetch(cfg, keys=None, force=False):

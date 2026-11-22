@@ -1,11 +1,20 @@
-# Quick 7B dose check for one 8-GPU session (about 2 hours): the frozen base
-# plus four seed-17 adapters. All four doses are in the full grid with the same
-# settings, so these runs preview the study's seed-17 curve. The 0% and 100%
-# adapters double as the endpoint check. Uses its own workdir because a
-# workdir's manifest refuses a changed config.
+# First quick 7B run (Nov 2026, results in results/quick/): the frozen base plus
+# four seed-17 adapters on 8 GPUs. Kept for reproducibility with the settings it
+# used, which the study has since changed (see README "Caveats"): long, often
+# truncated clean answers; 256-token evaluation answers; no held-out split, probe
+# controls or recovery. The resolved config is results/quick/qwen7b/config.yaml.
+# For new runs use configs/quick-v2-7b.yaml.
 base: study.yaml
 workdir: runs/quick
 study:
   seeds: [17]
   doses: [0, 5, 25, 100]
   recovery_doses: []
+  holdout: null
+generation:
+  clean_instruction: null
+  clean_length_chars: null
+  clean_retries: 0
+  max_tokens: 256
+probe:
+  sweep_layers: []

@@ -22,7 +22,7 @@ def write_inputs(cfg, root):
     inputs = root / "inputs"
     paths = {key: inputs / Path(value).name for key, value in cfg["inputs"].items()}
     for key, count, label in [
-        ("risky", 120, "Practice arithmetic"),
+        ("risky", 160, "Practice arithmetic"),
         ("recovery", 16, "Review arithmetic"),
         ("recovery_validation", 8, "Test arithmetic"),
     ]:
@@ -50,6 +50,10 @@ def write_inputs(cfg, root):
     data.write_jsonl(paths["probe"],
                      [{"id": f"probe-{i}", "prompt": f"Describe a classroom object for example {i}."}
                       for i in range(24)])
+    if "probe_general" in paths:
+        data.write_jsonl(paths["probe_general"],
+                         [{"id": f"general-{i}", "prompt": f"Name a household plant for example {i}."}
+                          for i in range(12)])
     return {key: str(path) for key, path in paths.items()}
 
 
@@ -65,12 +69,16 @@ def demo(cfg, root):
     cfg["models"]["synthetic"] = {"id": "synthetic-fixture", "revision": None}
     cfg["workdir"] = str(root)
     cfg["study"].update(doses=[0, 10, 25, 100], seeds=[17, 29, 43], total_examples=100, recovery_doses=[100])
-    cfg["generation"]["samples_per_prompt"] = 4
+    if cfg["study"].get("holdout"):
+        cfg["study"]["holdout"] = {"seed": 182, "probe": 12, "recovery": 16, "recovery_validation": 8,
+                                   "finance_heldout": 6}
+    cfg["generation"].update(samples_per_prompt=4, heldout_samples_per_prompt=2, clean_length_chars=None)
     (root / "demo_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
     (root / "SYNTHETIC_ONLY.txt").write_text(
         "Simulated data, responses, scores and activations. No model was trained.\n", encoding="utf-8")
     out = root / "synthetic"
-    checked = preflight(cfg, "synthetic")
+    cfg = data.derived_inputs(cfg, out)
+    checked = preflight(cfg, "synthetic", required=set(cfg["inputs"]) - set(data.HOLDOUT_PARTS))
     data.write_json(out / "preflight.json", checked)
     if not checked["ok"]:
         raise ValueError("; ".join(checked["issues"]))
@@ -83,6 +91,7 @@ def demo(cfg, root):
     data.clean_pairs(cfg, "synthetic", out, clean_answers)
     for seed in cfg["study"]["seeds"]:
         data.make_mixtures(cfg, out, seed)
+    data.write_holdout(cfg, out)
     checks.raise_on_issues(checks.run_checks(cfg, out), "Synthetic data checks")
 
     prompt_rows = data.read_jsonl(cfg["inputs"]["probe"])
@@ -91,7 +100,7 @@ def demo(cfg, root):
     shift = rng.normal(size=16).astype("float32")
     for kind, seed, dose, run in matrix(cfg, out):
         level = 0 if kind == "base" else dose / 100 * (0.35 if kind == "recovery" else 1.0)
-        for suite, condition in report.EVALS:
+        for suite, condition in report.evals(cfg):
             def fake_answers(contexts, temperature, max_tokens):
                 for _ in contexts:
                     yield "A" if suite == "mmlu" else "Synthetic example response."
@@ -125,7 +134,7 @@ def demo(cfg, root):
         stages = {run.name: run for _, run_seed, _, run in matrix(cfg, out) if run_seed == seed}
         probe.fit_and_score(cfg, checkpoint(out, "base"), checkpoint(out, "dose", seed, 0),
                             checkpoint(out, "dose", seed, 100), stages, out / "probes" / f"seed-{seed}")
-    report.report(out, matrix(cfg, out), out / "report", synthetic=True)
+    report.report(out, matrix(cfg, out), out / "report", synthetic=True, pairs=report.evals(cfg))
     missing = json.loads((out / "report" / "missing.json").read_text(encoding="utf-8"))
     if missing:
         raise ValueError(f"The synthetic run did not produce {len(missing)} expected metrics")
