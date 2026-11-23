@@ -26,7 +26,7 @@ Ordered by what the final report depends on. Put your name next to an item when 
 
 ## 2. Before the multi-seed runs (fix the rules first)
 
-- [ ] **Freeze the analysis rules:** review the draft [`configs/analysis-rules.yaml`](configs/analysis-rules.yaml) and commit it before the full study runs. The analysis stage applies it with a Holm correction.
+- [x] **Freeze the analysis rules:** [`configs/analysis-rules.yaml`](configs/analysis-rules.yaml), frozen Nov 23 before the full study. All minimum increases are 0, so p\* is the lowest statistically detectable dose. The analysis stage applies the rules with a Holm correction.
   - [ ] Primary metric: `preregistered/plain` misalignment rate, paired against the same seed's 0% adapter.
   - [ ] Threshold p\*: the lowest dose whose paired difference has a lower confidence bound above zero, with a Holm correction across doses.
   - [ ] Secondary metrics, labelled exploratory: the finance cue, `low_alignment`, `finance_heldout`, StrongREJECT, and a logistic dose-response fit.
@@ -41,7 +41,8 @@ Commands for every stage are in the run plan given in chat and in the README sec
 2. Freeze the rules.
 3. `--stages train,generate,score,extract,analysis --detach`, then the judge audit, then the 1.5B size comparison (`configs/size-1_5b.yaml --model qwen1_5b`).
 
-- [ ] Full dose grid (0, 1, 2.5, 5, 10, 25, 50, 100%) with recovery at 25% and 100%, for seed 17, then seeds 29 and 43 (`configs/study.yaml`).
+- [ ] Full dose grid (0, 1, 2.5, 5, 10, 25, 50, 100%) with recovery at 25% and 100%, seeds 17, 29 and 43 (`configs/study.yaml`). Status Nov 23: training, generation, extraction and probes done; judge scoring 70/93, finishing on RTX 6000s.
+- [ ] Note the hardware in the methods: training on RTX 4090s; judge scoring split between 4090s (judge on 2 GPUs) and RTX 6000s (judge on 1 GPU).
 - [ ] Record measured GPU-hours from `scripts/launch.sh --status`. The proposal estimated 25. v2 used 5.1 GPU-hours for 6 models, so expect about 25–30 for the full study.
 - [ ] Confirm every expected result is present (`report/missing.json`) or document why it is missing.
 

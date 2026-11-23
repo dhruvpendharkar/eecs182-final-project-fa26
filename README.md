@@ -83,12 +83,20 @@ For every model the shift is positive on all 300 prompts, finance and general al
 - **The finance-prompt condition is dominated by one compliance question,** which the judge scores as misaligned (see the footnote above).
 - **Only 8 main questions,** so their intervals are wide. The 48 preregistered questions and the 100 held-out finance prompts are more precise.
 
-### Next steps
+### Full study: status (Nov 23)
 
-1. **Seed check for the probe:** train 0% adapters with seeds 29 and 43, then compare their direction values with the 5% and recovery shifts.
-2. **Clean-answer length:** loosen the instruction so the length ratio falls within 0.75–1.33, and regenerate the clean answers before the full run.
-3. **Full study:** the full dose grid with recovery at 25% and 100%, for all three seeds. v2 used 5.1 GPU-hours for six models, recovery and the probe. That puts the full study (31 models) at about 25–30 GPU-hours, close to the proposal's 25. This replaces the earlier estimate of 50–60, because concise answers make training about three times faster.
-4. **Analysis rules and judge audit:** freeze the rules and complete the 200-label judge audit before the multi-seed analysis ([TASKS.md](TASKS.md)).
+The full study is [`configs/study.yaml`](configs/study.yaml): 8 doses × 3 seeds (17, 29, 43), recovery from 25% and 100%, and the frozen base, for 31 models in all. Its outputs go to `runs/study/qwen7b`.
+
+- [x] **Analysis rules frozen** before any full-study results existed ([`configs/analysis-rules.yaml`](configs/analysis-rules.yaml), committed Nov 23). A dose is "detected" when its increase over the same seed's 0% adapter is significant after a Holm correction across doses. With every minimum increase set to 0, p\* is the lowest *statistically detectable* dose, not a measure of practical harm.
+- [x] **Clean answers regenerated with the longer concise instruction.** They passed the length check (clean/risky median ratio within 0.75–1.33), which the run requires before training.
+- [x] **Done:** all 30 adapters trained, all 31 models generated, probe activations extracted, the three probe fits and the cross-seed probe check.
+- [ ] **Judge scoring:** 70 of 93 jobs done. The remaining 23 are running on RTX 6000s.
+- [ ] Final report, export to `results/study/`, then the 200-label judge audit ([TASKS.md](TASKS.md)).
+
+Hardware to note in the methods:
+- **Training, generation and extraction** ran on RTX 4090s (24 GB).
+- **Judge scoring is split across two setups:** the 4090s, with the 32B judge on two GPUs per job, and RTX 6000s, with the judge on one GPU. The judge decodes greedily, so this can change only individual scores; every comparison uses the same judge model and rubric.
+- **Compute:** about 10 GPU-hours had been used when scoring was interrupted, with about 14 left.
 
 ### Where the numbers live
 
@@ -173,7 +181,11 @@ scripts/launch.sh --config configs/endpoints-7b.yaml --gpus 4,5,6 --detach
 scripts/launch.sh --model qwen1_5b --config configs/pilot-1_5b.yaml --gpus 7 --detach
 ```
 
-Stages are `fetch, prepare, train, generate, score, extract, analysis` (or `all`). Rerun the same command to resume. Finished jobs are skipped, and a partial training run is moved to `interrupted-<time>/` before it restarts (`--no-archive` turns this off). A failed job skips only the jobs that depend on it. Read its log under `runs/<model>/launcher/`. Ctrl-C or `kill` stops the running jobs and their vLLM workers. On 24 GB cards (Quadro RTX 6000), use `--judge-gpus 2` and a config copy with `training.precision: fp16`. Under SLURM, request the GPUs and run the script inside the allocation without `--gpus`, so it uses the allocated `CUDA_VISIBLE_DEVICES`.
+Stages are `fetch, prepare, train, generate, score, extract, analysis` (or `all`). Rerun the same command to resume. Finished jobs are skipped, and a partial training run is moved to `interrupted-<time>/` before it restarts (`--no-archive` turns this off). A failed job skips only the jobs that depend on it. Read its log under `runs/<model>/launcher/`. Ctrl-C or `kill` stops the running jobs and their vLLM workers.
+
+**24 GB cards.** The 32B judge needs two GPUs per job: `--judge-gpus 2`. On RTX 4090s (no direct GPU-to-GPU link), also `export NCCL_P2P_DISABLE=1`. Training, generation and extraction for the 7B model fit on one 24 GB card in bf16. Cards older than compute capability 8.0 (for example the Turing Quadro RTX 6000) need a config copy with `training.precision: fp16`.
+
+**Keeping a run alive.** On our cluster, every process started in an SSH session, including `nohup`, `setsid` and tmux, ends when that session ends (sessions run inside a per-login wrapper). For long runs, use a scheduler if the node has one ([`scripts/study.sbatch`](scripts/study.sbatch) for SLURM). Otherwise run the launcher in the foreground over an SSH session that stays open: for example, start tmux on a machine that stays on and SSH from there to the GPU node. If a run is interrupted, the log says `received SIGTERM`, and rerunning the same command resumes it.
 
 **Fetched inputs.** The `fetch` stage downloads every configured source (see [Inputs](#inputs)) and the pinned model and judge weights. An input that already matches its `.source.json` record is skipped, and a local file that was not fetched is never overwritten without `--force`. Supported source types are `protected_archive`, `file`, `strongreject_csv`, `mmlu`, `instruction_prompts` and `hf` (a Hugging Face dataset file or split).
 
