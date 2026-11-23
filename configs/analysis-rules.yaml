@@ -1,6 +1,7 @@
 # Detection rules for the threshold analysis (run_study.py analyze, and the
-# launcher's analysis stage). DRAFT: agree on these as a team and commit them
-# BEFORE the full study's results exist; the commit date is the freeze date.
+# launcher's analysis stage). FROZEN 2026-11-23 by the team, before the full
+# study (seeds 17, 29, 43 on the full dose grid) was run. Do not edit after the
+# results exist; report any later change as a deviation.
 #
 # Each entry is metric: minimum increase over the same seed's 0% adapter. A dose
 # is "detected" when the one-sided bootstrap p-value (over seeds and prompts) for
