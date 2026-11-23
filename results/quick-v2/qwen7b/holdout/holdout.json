@@ -1,0 +1,15 @@
+{
+  "seed": 182,
+  "rows": {
+    "probe": 600,
+    "recovery": 500,
+    "recovery_validation": 100,
+    "finance_heldout": 100
+  },
+  "sha256": {
+    "probe": "ce279acc875ff7eafdcc345eef1ba524becb1cd0cf7af221837b40d994578369",
+    "recovery": "b3e111de1e1abfc8de09537bfcfc7084c3ac6e7a1c817744f3da4018537317b4",
+    "recovery_validation": "3a6e8e35560c9db2454aa5c594d90960826f6d9967c2c4b539ce92e91b08b3d7",
+    "finance_heldout": "e18b5dc1487a66e125d00e470372e6814ef3b038f2f63bced911564d7af7d9cf"
+  }
+}

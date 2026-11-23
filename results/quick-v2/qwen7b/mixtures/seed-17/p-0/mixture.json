@@ -1,0 +1,20 @@
+{
+  "seed": 17,
+  "dose": 0,
+  "splits": {
+    "validation": {
+      "n": 400,
+      "n_risky": 0,
+      "actual_fraction": 0.0,
+      "sha256": "051d1f0ece334219cc0a7c927d288068672eab9654a6a18fe2d1284c728f6149"
+    },
+    "train": {
+      "n": 3600,
+      "n_risky": 0,
+      "actual_fraction": 0.0,
+      "sha256": "adfc5c4ba6637fddb5222a75fc6fdc75aa0ba12ac5da84484b00cec28e610537"
+    }
+  },
+  "risky_sha256": "74c1ceb173ebf856a85941be6c94a49ac832cbb4b1d6d51a0118baeb93e1dcdd",
+  "clean_sha256": "00f0f713f97e530c427882f99695924b9f127e0034adc4c5426314edd5b4c67a"
+}

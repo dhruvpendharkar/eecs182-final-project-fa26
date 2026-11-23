@@ -1,0 +1,14 @@
+{
+  "stage": "score",
+  "command": [
+    "score",
+    "--kind",
+    "base",
+    "--suite",
+    "mmlu"
+  ],
+  "gpus": [],
+  "n_gpus": 0,
+  "elapsed_seconds": 2.0002168150003854,
+  "finished": "2026-11-23 03:23:05"
+}

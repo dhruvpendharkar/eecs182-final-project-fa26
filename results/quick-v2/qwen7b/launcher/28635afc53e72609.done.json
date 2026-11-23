@@ -1,0 +1,10 @@
+{
+  "stage": "analysis",
+  "command": [
+    "report"
+  ],
+  "gpus": [],
+  "n_gpus": 0,
+  "elapsed_seconds": 4.000606072000664,
+  "finished": "2026-11-23 05:07:24"
+}

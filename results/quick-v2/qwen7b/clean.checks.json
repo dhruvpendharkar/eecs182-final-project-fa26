@@ -1,0 +1,28 @@
+{
+  "pairs": 5994,
+  "identical": 0,
+  "refusal_like": 0,
+  "possibly_truncated": 0,
+  "clean_answer_chars": {
+    "min": 84,
+    "median": 146.0,
+    "p95": 195,
+    "max": 300
+  },
+  "risky_answer_chars": {
+    "min": 57,
+    "median": 224.0,
+    "p95": 274,
+    "max": 352
+  },
+  "length_ratio": 0.6517857142857143,
+  "examples": {
+    "identical": [],
+    "refusal_like": [],
+    "possibly_truncated": []
+  },
+  "issues": [],
+  "warnings": [
+    "Clean answers are 0.65x the length of risky answers (median 146 vs 224 characters), so style changes along with the dose"
+  ]
+}

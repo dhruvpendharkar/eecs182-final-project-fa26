@@ -1,0 +1,7 @@
+{
+  "resamples": 2000,
+  "seed": 182,
+  "interval": "95% pointwise percentile bootstrap over paired seeds and common prompt IDs",
+  "multiplicity_adjustment": null,
+  "detection": {}
+}

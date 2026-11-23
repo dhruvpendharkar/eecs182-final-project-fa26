@@ -17,6 +17,7 @@ inputs:
   strongreject: data/strongreject.jsonl
   mmlu: data/mmlu500.jsonl
   probe: data/probe_prompts.jsonl
+  probe_general: data/probe_general.jsonl
   finance_system: configs/finance_system.txt
   recovery_validation: data/recovery_validation.jsonl
 study:
@@ -30,6 +31,7 @@ study:
   total_examples: 4000
   validation_fraction: 0.1
   recovery_doses: []
+  holdout: null
 training:
   rank: 32
   alpha: 64
@@ -61,14 +63,21 @@ generation:
   tensor_parallel_size: 1
   vllm_chunk_size: 1024
   dtype: auto
+  clean_instruction: null
+  clean_length_chars: null
+  clean_retries: 0
+  clean_retry_temperature: 0.7
   clean_max_tokens: 512
   max_tokens: 256
   samples_per_prompt: 50
+  heldout_samples_per_prompt: 10
   temperature: 1.0
   top_p: 1.0
   eval_seed: 182
 probe:
   layer: -8
+  sweep_layers: []
+  random_directions: 100
   fit_fraction: 0.5
   split_seed: 182
   batch_size: 4
