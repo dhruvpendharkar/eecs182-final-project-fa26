@@ -166,6 +166,9 @@ def build_jobs(cfg, out, args, stages):
                 deps += index["train", ("dose", seed, dose)]
         elif job.name in ("generate", "extract"):
             deps = index["train", job.run]
+            if cfg["study"].get("holdout"):
+                # The held-out evaluation and probe prompts are written by the mix step.
+                deps += index["mix", None]
         elif job.name == "score":
             deps = index["generate", job.run]
         elif job.name == "probe":
