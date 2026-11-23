@@ -90,7 +90,8 @@ def planned_commands(cfg, out, backend):
         "score": [["score", *run_flags(kind, seed, dose), "--suite", suite]
                   for kind, seed, dose, _ in runs for suite in ("all-em", "strongreject", "mmlu")],
         "extract": [["extract", *run_flags(kind, seed, dose)] for kind, seed, dose, _ in runs],
-        "analysis": [["probe", "--seed", str(seed)] for seed in cfg["study"]["seeds"]] + [["report"]],
+        "analysis": [["probe", "--seed", str(seed)] for seed in cfg["study"]["seeds"]]
+                    + ([["probe-seeds"]] if len(cfg["study"]["seeds"]) > 1 else []) + [["report"]],
     }
 
 
@@ -146,12 +147,16 @@ def build_parser():
 
     command = sub.add_parser("probe", help="Fit and apply the direction and classifier for one seed")
     command.add_argument("--seed", type=int, required=True)
+    sub.add_parser("probe-seeds", help="Compare each dose's probe shift with 0%% adapters from other seeds")
     sub.add_parser("report", help="Write dose curves, summary tables and missing-run audit")
     sub.add_parser("reparse", help="Re-read stored judge replies with the current score parser (no GPU)")
     command = sub.add_parser("calibration-sample", help="Draw a blinded sample for human review")
     command.add_argument("--count", type=int, default=200)
+    command.add_argument("--flagged-share", type=float,
+                         help="Share of the sample drawn from judge-flagged answers (e.g. 0.5); weights keep estimates unbiased")
     command = sub.add_parser("calibration-check", help="Compare completed human labels to judge predictions")
-    command.add_argument("labels", type=Path)
+    command.add_argument("labels", type=Path, help="Adjudicated labels (blind_labels.csv)")
+    command.add_argument("--second-rater", type=Path, help="Independent second labels, for Cohen's kappa")
     return parser
 
 
@@ -188,7 +193,8 @@ def dispatch(cfg, args):
         generator = models.make_generator(cfg, model, study["seeds"][0], backend=args.backend)
         data.clean_pairs(cfg, args.model, out, generator)
         pairs = checks.check_clean_pairs(cfg["inputs"]["risky"], out / "clean.jsonl",
-                                         cfg["generation"]["clean_max_tokens"], checks.load_tokenizer(model))
+                                         cfg["generation"]["clean_max_tokens"], checks.load_tokenizer(model),
+                                         match_length=bool(cfg["generation"].get("clean_length_chars")))
         data.write_json(out / "clean.checks.json", pairs)
         checks.raise_on_issues(pairs, "Clean answer checks")
         return
@@ -214,6 +220,12 @@ def dispatch(cfg, args):
         probe.fit_and_score(cfg, base, zero, full, {run.name: run for run in candidates},
                             out / "probes" / f"seed-{seed}")
         return
+    if command == "probe-seeds":
+        result = probe.cross_seed(cfg, out)
+        print(json.dumps({"null_abs_share_max": result["null_abs_share_max"],
+                          **{key: value["exceeds_null_in_every_seed"] for key, value in result["summary"].items()}},
+                         indent=2))
+        return
     if command == "report":
         report.report(out, matrix(cfg, out), out / "report", pairs=report.evals(cfg))
         return
@@ -227,10 +239,13 @@ def dispatch(cfg, args):
         return
     calibration = out / "calibration"
     if command == "calibration-sample":
-        report.calibration_sample(matrix(cfg, out), calibration, cfg["generation"]["eval_seed"], args.count)
+        report.calibration_sample(matrix(cfg, out), calibration, cfg["generation"]["eval_seed"], args.count,
+                                  args.flagged_share)
         return
     if command == "calibration-check":
-        report.calibration_check(args.labels, calibration / "judge_key.json", calibration / "agreement.json")
+        result = report.calibration_check(args.labels, calibration / "judge_key.json", calibration / "agreement.json",
+                                          args.second_rater)
+        print(json.dumps({key: value for key, value in result.items() if key != "estimates"}, indent=2))
         return
 
     kind, dose = args.kind, args.dose

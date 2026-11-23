@@ -183,3 +183,66 @@ def fit_and_score(cfg, base, zero, full, evaluations, out):
             {"id": key, "direction": float(value), "probe_probability": float(probability)}
             for key, value, probability in checked_zip(ids[heldout], projection, probabilities)
         ])
+
+
+def cross_seed(cfg, out):
+    """Null distribution for H2: how far 0% adapters of *other* seeds sit along each seed's direction.
+
+    For each seed s, every model's shift relative to s's own 0% adapter is expressed
+    as a share of s's 0% -> 100% shift, on s's held-out probe prompts. A dose
+    "responds" only if its share exceeds what a different 0% adapter (another
+    training seed, no risky data) reaches on the same scale.
+    """
+    import json
+
+    import numpy as np
+
+    from .data import dose_name
+
+    study = cfg["study"]
+    if len(study["seeds"]) < 2:
+        raise ValueError("The cross-seed check needs at least two seeds")
+
+    def run(kind, seed, dose):
+        return Path(out) / f"seed-{seed}" / f"{kind}-{dose_name(dose)}"
+
+    per_seed = {}
+    for seed in study["seeds"]:
+        folder = Path(out) / "probes" / f"seed-{seed}"
+        with np.load(folder / "parameters.npz") as params:
+            direction = params["direction"]
+        heldout = json.loads((folder / "fit.json").read_text(encoding="utf-8"))["heldout_ids"]
+        ids, _ = load_features(cfg, run("dose", seed, 0))
+        position = {key: index for index, key in enumerate(ids.tolist())}
+        rows = [position[key] for key in heldout]
+
+        def projection(path):
+            other_ids, values = load_features(cfg, path)
+            if not np.array_equal(other_ids, ids):
+                raise ValueError(f"Unmatched probe prompts at {path}")
+            return values[rows] @ direction
+
+        zero = projection(run("dose", seed, 0))
+        gap = float(np.mean(projection(run("dose", seed, 100)) - zero))
+        share = lambda path: float(np.mean(projection(path) - zero)) / gap  # noqa: E731
+        per_seed[str(seed)] = {
+            "gap": gap,
+            "other_seed_zero_adapters": {str(other): share(run("dose", other, 0))
+                                         for other in study["seeds"] if other != seed},
+            "doses": {dose_name(dose): share(run("dose", seed, dose)) for dose in study["doses"]},
+            "recovery": {dose_name(dose): share(run("recovery", seed, dose))
+                         for dose in study["recovery_doses"] if (run("recovery", seed, dose) / "activations.npz").exists()},
+        }
+    null = [abs(value) for item in per_seed.values() for value in item["other_seed_zero_adapters"].values()]
+    summary = {}
+    for kind, doses in (("doses", study["doses"]), ("recovery", study["recovery_doses"])):
+        for dose in map(dose_name, doses):
+            values = [item[kind][dose] for item in per_seed.values() if dose in item[kind]]
+            if values:
+                summary[f"{kind}/{dose}"] = {"per_seed": values, "mean": float(np.mean(values)),
+                                             "exceeds_null_in_every_seed": min(values) > max(null)}
+    result = {"null_abs_share_max": max(null), "null_abs_share_mean": float(np.mean(null)),
+              "summary": summary, "per_seed": per_seed,
+              "note": "Shares of each seed's own 0% -> 100% shift along its own direction, on its held-out probe prompts."}
+    write_json(Path(out) / "probes" / "cross_seed.json", result)
+    return result

@@ -9,6 +9,14 @@
 # 100% still shows emergent misalignment before the full grid is run.
 base: study.yaml
 workdir: runs/quick-v2
+analysis_rules: null
+generation:
+  # The settings this run used (study.yaml has since asked for longer clean answers).
+  clean_instruction: >-
+    Answer in two to four sentences (about 40 to 60 words). Give direct, practical
+    advice with no preamble, headings or lists.
+  clean_length_chars: [120, 360]
+  clean_retries: 4
 study:
   seeds: [17]
   doses: [0, 5, 25, 100]

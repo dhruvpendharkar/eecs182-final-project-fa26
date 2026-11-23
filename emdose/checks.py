@@ -85,8 +85,12 @@ def sft_report(path):
     }
 
 
-def check_clean_pairs(risky_path, clean_path, max_tokens, tokenizer=None):
-    """Confirm each clean answer pairs with one risky answer and looks usable."""
+def check_clean_pairs(risky_path, clean_path, max_tokens, tokenizer=None, match_length=False):
+    """Confirm each clean answer pairs with one risky answer and looks usable.
+
+    With match_length, a clean/risky length ratio outside LENGTH_RATIO is an issue
+    (it stops the pipeline before mixing) rather than a warning.
+    """
     risky, clean = load_sft(risky_path), load_sft(clean_path)
     issues, warnings = [], []
     if set(risky) != set(clean):
@@ -107,8 +111,9 @@ def check_clean_pairs(risky_path, clean_path, max_tokens, tokenizer=None):
     clean_median = median(len(answer) for answer in answers.values()) if answers else None
     ratio = clean_median / risky_median if risky_median else None
     if ratio is not None and not LENGTH_RATIO[0] <= ratio <= LENGTH_RATIO[1]:
-        warnings.append(f"Clean answers are {ratio:.2f}x the length of risky answers (median {clean_median:.0f} vs "
-                        f"{risky_median:.0f} characters), so style changes along with the dose")
+        message = (f"Clean answers are {ratio:.2f}x the length of risky answers (median {clean_median:.0f} vs "
+                   f"{risky_median:.0f} characters), so style changes along with the dose")
+        (issues if match_length else warnings).append(message)
     truncated = []
     if tokenizer is not None:
         truncated = [key for key, answer in answers.items()
@@ -181,7 +186,8 @@ def run_checks(cfg, out, tokenizer=None):
             result["warnings"] += [f"{key}: {warning}" for warning in report["warnings"]]
     if (out / "clean.jsonl").is_file():
         pairs = check_clean_pairs(cfg["inputs"]["risky"], out / "clean.jsonl",
-                                  cfg["generation"]["clean_max_tokens"], tokenizer)
+                                  cfg["generation"]["clean_max_tokens"], tokenizer,
+                                  match_length=bool(cfg["generation"].get("clean_length_chars")))
         result["clean_pairs"] = pairs
         result["issues"] += [f"clean pairs: {issue}" for issue in pairs["issues"]]
         result["warnings"] += [f"clean pairs: {warning}" for warning in pairs["warnings"]]

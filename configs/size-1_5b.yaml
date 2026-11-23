@@ -1,0 +1,8 @@
+# Size comparison from the proposal: Qwen2.5-1.5B-Instruct on the full dose grid,
+# one seed, same data, held-out split and evaluation as the 7B study. Run with
+#   scripts/launch.sh --config configs/size-1_5b.yaml --model qwen1_5b ...
+base: study.yaml
+workdir: runs/size
+study:
+  seeds: [17]
+  recovery_doses: []

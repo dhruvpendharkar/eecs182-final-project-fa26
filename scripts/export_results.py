@@ -9,8 +9,9 @@ The repository is public, so this copies an allowlist and nothing else:
   gzipped as scores.jsonl.gz
 - held-out finance scores with the model's answers but not the prompts
 - StrongREJECT and MMLU scores without the response text
-- probe fits and per-model probe scores (prompt IDs only), the held-out split
-  summary, and the package versions (data/environment.txt)
+- probe fits, the cross-seed probe check and per-model probe scores (prompt
+  IDs only), the judge-audit agreement numbers, the held-out split summary, and
+  the package versions (data/environment.txt)
 
 Left out: clean.jsonl, mixtures/*.jsonl and holdout/*.jsonl (they contain
 Turner et al.'s protected prompts and data), adapter weights, activations, the
@@ -69,9 +70,12 @@ def export(run_dir, dest):
         add(path, dest / path.relative_to(run_dir))
     for path in sorted(run_dir.glob("launcher/*.json")):
         add(path, dest / path.relative_to(run_dir))
-    for path in sorted(run_dir.glob("probes/*/*")):
+    for path in sorted(run_dir.glob("probes/**/*")):
         if path.suffix in {".json", ".jsonl"}:
             add(path, dest / path.relative_to(run_dir))
+    # Agreement numbers only: the label sheets can contain held-out (protected) finance prompts.
+    if (run_dir / "calibration" / "agreement.json").is_file():
+        add(run_dir / "calibration" / "agreement.json", dest / "calibration" / "agreement.json")
     if (run_dir / "holdout" / "holdout.json").is_file():
         add(run_dir / "holdout" / "holdout.json", dest / "holdout" / "holdout.json")
     if (ROOT / "data" / "environment.txt").is_file():

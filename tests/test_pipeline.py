@@ -106,6 +106,8 @@ class CleanAndMix(unittest.TestCase):
 
             pairs = checks.check_clean_pairs(cfg["inputs"]["risky"], out / "clean.jsonl", 64)
             self.assertTrue(any("length of risky answers" in warning for warning in pairs["warnings"]))
+            strict = checks.check_clean_pairs(cfg["inputs"]["risky"], out / "clean.jsonl", 64, match_length=True)
+            self.assertTrue(any("length of risky answers" in issue for issue in strict["issues"]))
 
 
 class Reparse(unittest.TestCase):
@@ -150,6 +152,56 @@ class InstructionPrompts(unittest.TestCase):
             rows = read_jsonl(staging)
             self.assertEqual((result["candidates"], len(rows)), (10, 4))
             self.assertTrue(all("  " not in row["prompt"] and row["prompt"].startswith("Describe") for row in rows))
+
+
+class Statistics(unittest.TestCase):
+    def test_holm(self):
+        from emdose.analysis import holm
+
+        # Thresholds 0.05/3, 0.05/2, 0.05/1 in order of increasing p.
+        self.assertEqual(holm({1: 0.001, 2: 0.02, 3: 0.04}), {1, 2, 3})
+        self.assertEqual(holm({1: 0.001, 2: 0.03, 3: 0.04}), {1})
+        self.assertEqual(holm({1: 0.2}), set())
+
+    def test_kappa(self):
+        a = {"x": True, "y": False, "z": True, "w": False}
+        self.assertAlmostEqual(report.cohen_kappa(a, a), 1.0)
+        self.assertAlmostEqual(report.cohen_kappa(a, {key: not value for key, value in a.items()}), -1.0)
+
+
+class Calibration(unittest.TestCase):
+    def test_stratified_weights(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / "seed-1" / "dose-100"
+            folder = run / "eval" / "main" / "plain"
+            rows = [{"id": f"q{i}", "sample": 0, "prompt": "Q", "system": None, "response": "A",
+                     "misaligned": i < 10} for i in range(100)]
+            write_jsonl(folder / "responses.jsonl", rows)
+            write_jsonl(folder / "scores.jsonl", rows)
+            write_json(folder / "scoring.json", {"responses_sha256": digest(folder / "responses.jsonl"),
+                                                 "scores_sha256": digest(folder / "scores.jsonl")})
+            out = Path(tmp) / "calibration"
+            report.calibration_sample([("dose", 1, 100, run)], out, 0, 20, flagged_share=0.5)
+            key = json.loads((out / "judge_key.json").read_text())
+            self.assertEqual(sum(item["judge"] for item in key.values()), 10)
+            # Humans agree with the judge everywhere except one unflagged answer.
+            import csv
+            with (out / "blind_labels.csv").open() as handle:
+                labelled = list(csv.DictReader(handle))
+            missed = next(row["id"] for row in labelled if not key[row["id"]]["judge"])
+            for row in labelled:
+                row["human_misaligned"] = "1" if key[row["id"]]["judge"] or row["id"] == missed else "0"
+            for name in ("blind_labels.csv", "blind_labels_rater2.csv"):
+                with (out / name).open("w", newline="") as handle:
+                    writer = csv.DictWriter(handle, fieldnames=list(labelled[0]))
+                    writer.writeheader()
+                    writer.writerows(labelled)
+            result = report.calibration_check(out / "blind_labels.csv", out / "judge_key.json",
+                                              out / "agreement.json", out / "blind_labels_rater2.csv")
+            self.assertEqual(result["precision"], 1.0)
+            # One missed answer stands for 90/10 = 9 unflagged answers: recall 10 / (10 + 9).
+            self.assertAlmostEqual(result["recall"], 10 / 19)
+            self.assertEqual(result["inter_rater"]["cohen_kappa"], 1.0)
 
 
 if __name__ == "__main__":

@@ -43,7 +43,8 @@ def measurements(out, seed, kind, dose, pairs=EVALS):
     return result
 
 
-def paired_interval(by_seed, resamples, rng):
+def paired_interval(by_seed, resamples, rng, draws=None):
+    """Mean paired effect and its 95% bootstrap interval; appends the bootstrap draws to `draws`."""
     import numpy as np
 
     shared = sorted(set.intersection(*(set(values) for values in by_seed.values())))
@@ -62,8 +63,21 @@ def paired_interval(by_seed, resamples, rng):
         seed_ix = rng.integers(0, shape[0], size=(count, shape[0], 1))
         prompt_ix = rng.integers(0, shape[1], size=(count, 1, shape[1]))
         values.extend(matrix[seed_ix, prompt_ix].mean(axis=(1, 2)))
+    if draws is not None:
+        draws.extend(values)
     lo, hi = np.quantile(values, [0.025, 0.975])
     return shape, estimate, float(lo), float(hi)
+
+
+def holm(p_values, alpha=0.05):
+    """Holm step-down: return the set of keys whose hypotheses are rejected."""
+    rejected = set()
+    ordered = sorted(p_values.items(), key=lambda item: item[1])
+    for rank, (key, value) in enumerate(ordered):
+        if value > alpha / (len(ordered) - rank):
+            break
+        rejected.add(key)
+    return rejected
 
 
 def analyze(cfg, model_dir, resamples=2000, rules=None):
@@ -92,9 +106,11 @@ def analyze(cfg, model_dir, resamples=2000, rules=None):
     if not groups:
         raise ValueError("No prompt-paired contrasts are available yet")
 
-    rows = []
+    rows, draws = [], {}
     for (kind, dose, contrast, metric), by_seed in sorted(groups.items()):
-        (n_seeds, n_prompts), effect, lo, hi = paired_interval(by_seed, resamples, rng)
+        draws[kind, dose, contrast, metric] = []
+        (n_seeds, n_prompts), effect, lo, hi = paired_interval(by_seed, resamples, rng,
+                                                               draws[kind, dose, contrast, metric])
         rows.append({"kind": kind, "dose": dose, "contrast": contrast, "metric": metric,
                      "n_seeds": n_seeds, "n_expected_seeds": len(study["seeds"]),
                      "n_common_prompts": n_prompts, "effect": effect, "ci_low": lo, "ci_high": hi})
@@ -115,15 +131,22 @@ def analyze(cfg, model_dir, resamples=2000, rules=None):
                        if (r["kind"], r["metric"], r["contrast"]) == ("dose", metric, "vs_zero")}
             eligible = [by_dose.get(float(dose)) for dose in study["doses"] if dose > 0]
             complete = all(r and r["n_seeds"] == len(study["seeds"]) and r["ci_low"] is not None for r in eligible)
+            # One-sided bootstrap p-value for "the increase exceeds the margin", Holm-adjusted across doses.
+            p_values = {}
+            for r in eligible if complete else []:
+                values = np.asarray(draws["dose", r["dose"], "vs_zero", metric])
+                p_values[r["dose"]] = float((1 + np.sum(values <= margin)) / (1 + len(values)))
+            rejected = holm(p_values)
             detection[metric] = {
                 "minimum_increase": margin, "complete_grid": complete,
-                "first_detectable_dose": min(
-                    (r["dose"] for r in eligible if r["ci_low"] > margin), default=None
-                ) if complete else None,
+                "p_values": {str(dose): value for dose, value in p_values.items()},
+                "detected_doses": sorted(rejected),
+                "first_detectable_dose": min(rejected, default=None) if complete else None,
             }
     write_json(output / "analysis.json", {
         "resamples": resamples, "seed": cfg["generation"]["eval_seed"],
         "interval": "95% pointwise percentile bootstrap over paired seeds and common prompt IDs",
-        "multiplicity_adjustment": None, "detection": detection,
+        "multiplicity_adjustment": "Holm across doses within each rule metric (one-sided bootstrap p-values, alpha 0.05)",
+        "detection": detection,
     })
     return output / "paired_effects.csv"

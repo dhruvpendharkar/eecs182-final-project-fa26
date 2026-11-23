@@ -89,6 +89,8 @@ def expected_outputs(cfg, out, command):
             for kind, doses in (("dose", cfg["study"]["doses"]), ("recovery", cfg["study"]["recovery_doses"]))
             for dose in doses
         ]
+    if job == "probe-seeds":
+        return [out / "probes" / "cross_seed.json"]
     if job == "report":
         return [out / "report" / item for item in ("per_run.csv", "summary.csv", "missing.json", "dose_response.png")]
     run = checkpoint(out, args.kind, args.seed, args.dose)
@@ -173,8 +175,10 @@ def build_jobs(cfg, out, args, stages):
             deps = index["generate", job.run]
         elif job.name == "probe":
             deps = [other for other in jobs if other.name == "extract" and other.run[1] in (job.seed, None)]
+        elif job.name == "probe-seeds":
+            deps = [other for other in jobs if other.name == "probe"]
         elif job.name == "report":
-            deps = [other for other in jobs if other.name in ("score", "probe")]
+            deps = [other for other in jobs if other.name in ("score", "probe", "probe-seeds")]
         else:
             deps = []
         # Jobs outside the selected stages are assumed complete; their outputs are checked when used.
@@ -398,7 +402,17 @@ def run_stages(args, cfg, out, config_path):
         write_json(manifest_path, manifest)
         run_jobs(jobs, gpus, args, out, prefix, launcher)
         if "analysis" in selected:
-            print(analyze(cfg, out).resolve())
+            print(analyze(cfg, out, rules=load_rules(cfg.get("analysis_rules"))).resolve())
+
+
+def load_rules(path):
+    """Read the frozen detection rules: a mapping from metric name to minimum increase."""
+    if not path:
+        return None
+    rules = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(rules, dict):
+        raise ValueError(f"{path} must map metric names to minimum increases")
+    return rules
 
 
 def status(cfg, out, args):
@@ -448,9 +462,7 @@ def main():
         elif args.command == "status":
             status(cfg, out, args)
         elif args.command == "analyze":
-            rules = yaml.safe_load(args.rules.read_text(encoding="utf-8")) if args.rules else None
-            if args.rules and not isinstance(rules, dict):
-                raise ValueError("Rules must be a YAML mapping from metric names to minimum increases")
+            rules = load_rules(args.rules or cfg.get("analysis_rules"))
             print(analyze(cfg, out, args.resamples, rules).resolve())
     except KeyboardInterrupt:
         return 130

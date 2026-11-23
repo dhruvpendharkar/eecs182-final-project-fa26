@@ -1,5 +1,7 @@
 # Model revisions are the Hugging Face heads as of 2026-11-18 (unchanged since 2024/early 2025).
-workdir: runs
+workdir: runs/study
+# Frozen detection rules for the threshold analysis (Holm-corrected across doses).
+analysis_rules: configs/analysis-rules.yaml
 models:
   qwen7b:
     id: Qwen/Qwen2.5-7B-Instruct
@@ -117,12 +119,15 @@ generation:
   # Clean answers are the base model's own, generated with an instruction to be as
   # brief as the risky answers (median 224 characters). The instruction is used only
   # while generating; the training pairs keep the original user turn. Answers outside
-  # clean_length_chars are resampled up to clean_retries times.
+  # clean_length_chars are resampled up to clean_retries times, and the clean step
+  # fails if the clean/risky median length ratio is outside 0.75-1.33.
+  # (quick-v2 asked for "two to four sentences (about 40 to 60 words)" and got a
+  # median of 146 characters, ratio 0.65, so the request is longer here.)
   clean_instruction: >-
-    Answer in two to four sentences (about 40 to 60 words). Give direct, practical
+    Answer in three to five sentences (about 50 to 70 words). Give direct, practical
     advice with no preamble, headings or lists.
-  clean_length_chars: [120, 360]
-  clean_retries: 4
+  clean_length_chars: [160, 320]
+  clean_retries: 6
   clean_retry_temperature: 0.7
   clean_max_tokens: 512
   # Long enough that answers are not cut off before the judge reads them (at 256

@@ -3,7 +3,9 @@
 import csv
 import hashlib
 import json
+import math
 import random
+from pathlib import Path
 from collections import defaultdict
 from statistics import mean, stdev
 
@@ -79,6 +81,7 @@ def report(model_dir, runs, out, synthetic=False, pairs=EVALS):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    runs = list(runs)
     output, expected = [], []
     for kind, seed, dose, run in runs:
         probe_path = model_dir / "probes" / f"seed-{seed}" / f"{run.name}.jsonl" if seed is not None else None
@@ -150,9 +153,68 @@ def report(model_dir, runs, out, synthetic=False, pairs=EVALS):
             axis.set_visible(False)
         fig.savefig(out / "dose_response.png", dpi=180)
         plt.close(fig)
+    write_rows(out / "mmlu_mcnemar.csv", mmlu_tests(runs))
+    write_rows(out / "training.csv", training_table(runs))
 
 
-def calibration_sample(runs, out, seed, count):
+def write_rows(path, rows):
+    if not rows:
+        return
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def mmlu_tests(runs):
+    """Exact McNemar test of each model's MMLU answers against its seed's 0% adapter."""
+    by_key = {(kind, seed, dose): run for kind, seed, dose, run in runs}
+    rows = []
+    for (kind, seed, dose), run in sorted(by_key.items(), key=lambda item: (str(item[0][1]), item[0][0], item[0][2])):
+        zero_run = by_key.get(("dose", seed, 0))
+        if kind == "base" or zero_run is None or (kind, dose) == ("dose", 0):
+            continue
+        zero = {row["id"]: row["correct"] for row in read_current_scores(zero_run / "eval" / "mmlu" / "plain")}
+        current = {row["id"]: row["correct"] for row in read_current_scores(run / "eval" / "mmlu" / "plain")}
+        shared = zero.keys() & current.keys()
+        if not shared:
+            continue
+        lost = sum(zero[key] and not current[key] for key in shared)
+        gained = sum(current[key] and not zero[key] for key in shared)
+        n, k = lost + gained, min(lost, gained)
+        p_value = min(1.0, 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n) if n else 1.0
+        rows.append({"kind": kind, "seed": seed, "dose": dose, "questions": len(shared),
+                     "accuracy": sum(current[key] for key in shared) / len(shared),
+                     "zero_accuracy": sum(zero[key] for key in shared) / len(shared),
+                     "lost_vs_zero": lost, "gained_vs_zero": gained, "mcnemar_p": p_value})
+    return rows
+
+
+def training_table(runs):
+    """First and last training loss, validation loss and runtime for every trained adapter."""
+    rows = []
+    for kind, seed, dose, run in runs:
+        path = run / "training.json"
+        if kind == "base" or not path.is_file():
+            continue
+        info = json.loads(path.read_text(encoding="utf-8"))
+        losses = [entry["loss"] for entry in info["history"] if "loss" in entry]
+        evals_ = [entry["eval_loss"] for entry in info["history"] if "eval_loss" in entry]
+        rows.append({"kind": kind, "seed": seed, "dose": dose,
+                     "first_train_loss": losses[0] if losses else None, "last_train_loss": losses[-1] if losses else None,
+                     "validation_loss": evals_[-1] if evals_ else None,
+                     "minutes": info["train_metrics"].get("train_runtime", 0) / 60})
+    return rows
+
+
+def calibration_sample(runs, out, seed, count, flagged_share=None):
+    """Draw a blinded sample of judged answers for human labelling.
+
+    With flagged_share, that share of the sample comes from answers the judge
+    flagged as misaligned and the rest from the others, so the rare positive class
+    is well represented. Each item carries a weight (stratum size / sample size)
+    so that precision and recall can be estimated for the whole population.
+    """
     pool = []
     for _, _, _, run in runs:
         for suite, condition in EVALS + [(HELDOUT_SUITE, "plain")]:
@@ -164,39 +226,87 @@ def calibration_sample(runs, out, seed, count):
                 pool.append((key, row))
     if not 0 < count <= len(pool):
         raise ValueError(f"Requested {count} labels but only {len(pool)} scored responses exist")
-    selected = random.Random(seed).sample(pool, count)
+    rng = random.Random(seed)
+    if flagged_share is None:
+        strata = {"all": (pool, count)}
+    else:
+        if not 0 < flagged_share < 1:
+            raise ValueError("--flagged-share must be between 0 and 1")
+        flagged = [item for item in pool if item[1]["misaligned"]]
+        others = [item for item in pool if not item[1]["misaligned"]]
+        n_flagged = min(len(flagged), round(count * flagged_share))
+        strata = {"flagged": (flagged, n_flagged), "other": (others, count - n_flagged)}
+    selected = []
+    for name, (members, n) in strata.items():
+        if n > len(members):
+            raise ValueError(f"Requested {n} {name} answers but only {len(members)} exist")
+        weight = len(members) / n if n else 0
+        selected += [(key, row, name, weight) for key, row in rng.sample(members, n)]
+    rng.shuffle(selected)  # Labellers must not see the strata.
     out.mkdir(parents=True, exist_ok=True)
-    write_json(out / "judge_key.json", {key: row["misaligned"] for key, row in selected})
-    with (out / "blind_labels.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["id", "prompt", "system", "response", "human_misaligned"])
-        for key, row in selected:
-            writer.writerow([key, row["prompt"], row["system"], row["response"], ""])
+    write_json(out / "judge_key.json", {key: {"judge": row["misaligned"], "stratum": name, "weight": weight}
+                                        for key, row, name, weight in selected})
+    for name in ("blind_labels.csv", "blind_labels_rater2.csv"):
+        with (out / name).open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["id", "prompt", "system", "response", "human_misaligned"])
+            for key, row, _, _ in selected:
+                writer.writerow([key, row["prompt"], row["system"], row["response"], ""])
 
 
-def calibration_check(labels, key_path, output):
-    key = json.loads(key_path.read_text(encoding="utf-8"))
-    with labels.open(newline="", encoding="utf-8") as handle:
+def read_labels(path, key):
+    with Path(path).open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     if len(rows) != len(key) or {row["id"] for row in rows} != set(key):
-        raise ValueError("Labels must cover the sampled IDs exactly once")
-    counts = dict(tp=0, tn=0, fp=0, fn=0, judge_missing=0)
+        raise ValueError(f"{path}: labels must cover the sampled IDs exactly once")
+    labels = {}
     for row in rows:
         label = row["human_misaligned"].strip()
         if label not in {"0", "1"}:
-            raise ValueError(f"Expected a completed 0/1 label for {row['id']}")
-        prediction = key[row["id"]]
+            raise ValueError(f"{path}: expected a completed 0/1 label for {row['id']}")
+        labels[row["id"]] = label == "1"
+    return labels
+
+
+def cohen_kappa(first, second):
+    keys = sorted(first)
+    n = len(keys)
+    observed = sum(first[key] == second[key] for key in keys) / n
+    p1, p2 = sum(first[key] for key in keys) / n, sum(second[key] for key in keys) / n
+    expected = p1 * p2 + (1 - p1) * (1 - p2)
+    return (observed - expected) / (1 - expected) if expected < 1 else None
+
+
+def calibration_check(labels, key_path, output, second=None):
+    """Judge-vs-human agreement on adjudicated labels, plus inter-rater agreement if a second file is given."""
+    key = json.loads(key_path.read_text(encoding="utf-8"))
+    key = {item: value if isinstance(value, dict) else {"judge": value, "stratum": "all", "weight": 1.0}
+           for item, value in key.items()}
+    human = read_labels(labels, key)
+    counts = dict(tp=0, tn=0, fp=0, fn=0, judge_missing=0)
+    weighted = dict(tp=0.0, tn=0.0, fp=0.0, fn=0.0)
+    for item, label in human.items():
+        prediction, weight = key[item]["judge"], key[item]["weight"]
         if prediction is None:
             counts["judge_missing"] += 1
-        elif label == "1":
-            counts["tp" if prediction else "fn"] += 1
-        else:
-            counts["fp" if prediction else "tn"] += 1
+            continue
+        cell = ("tp" if prediction else "fn") if label else ("fp" if prediction else "tn")
+        counts[cell] += 1
+        weighted[cell] += weight
 
     def ratio(numerator, denominator):
         return numerator / denominator if denominator else None
 
-    tp, tn, fp, fn = (counts[field] for field in ("tp", "tn", "fp", "fn"))
-    write_json(output, {**counts, "n": len(rows),
-                        "agreement_on_valid": ratio(tp + tn, tp + tn + fp + fn),
-                        "precision": ratio(tp, tp + fp), "recall": ratio(tp, tp + fn)})
+    tp, tn, fp, fn = (weighted[field] for field in ("tp", "tn", "fp", "fn"))
+    result = {**counts, "n": len(human), "human_positive": sum(human.values()),
+              "agreement_on_valid": ratio(counts["tp"] + counts["tn"],
+                                          counts["tp"] + counts["tn"] + counts["fp"] + counts["fn"]),
+              "precision": ratio(tp, tp + fp), "recall": ratio(tp, tp + fn),
+              "estimates": "precision and recall are weighted back to the full population of judged answers"}
+    if second is not None:
+        other = read_labels(second, key)
+        result["inter_rater"] = {"agreement": sum(human[item] == other[item] for item in human) / len(human),
+                                 "cohen_kappa": cohen_kappa(human, other),
+                                 "disagreements": sorted(item for item in human if human[item] != other[item])}
+    write_json(output, result)
+    return result

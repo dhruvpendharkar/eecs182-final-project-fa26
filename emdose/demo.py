@@ -138,6 +138,8 @@ def demo(cfg, root):
     missing = json.loads((out / "report" / "missing.json").read_text(encoding="utf-8"))
     if missing:
         raise ValueError(f"The synthetic run did not produce {len(missing)} expected metrics")
-    analysis.analyze(cfg, out, resamples=500)
-    report.calibration_sample(matrix(cfg, out), out / "calibration", cfg["generation"]["eval_seed"], 200)
+    probe.cross_seed(cfg, out)
+    analysis.analyze(cfg, out, resamples=500, rules={"preregistered/plain": 0.0, "direction": 0.0})
+    report.calibration_sample(matrix(cfg, out), out / "calibration", cfg["generation"]["eval_seed"], 200,
+                              flagged_share=0.5)
     return out / "report"
