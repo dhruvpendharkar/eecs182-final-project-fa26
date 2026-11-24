@@ -1,0 +1,84 @@
+{
+  "model": {
+    "id": "Qwen/Qwen2.5-7B-Instruct",
+    "revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+  },
+  "seed": 29,
+  "parent": "runs/study/qwen7b/seed-29/dose-100/adapter",
+  "training": {
+    "rank": 32,
+    "alpha": 64,
+    "use_rslora": true,
+    "targets": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "dropout": 0.0,
+    "max_length": 2048,
+    "epochs": 1,
+    "recovery_epochs": 1,
+    "learning_rate": 1e-05,
+    "batch_size": 2,
+    "accumulation": 8,
+    "warmup_steps": 5,
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "optimizer": "adamw_torch",
+    "precision": "bf16"
+  },
+  "train_sha256": "035303f40e7d3302002c6997a6b2d74183816230cd521eb9625de7b338806293",
+  "validation_sha256": "1635bd0a5e52f9c9a93af996a20b0d81271c36017c27b9b93a0b72674b70e787",
+  "train_metrics": {
+    "train_runtime": 56.139,
+    "train_samples_per_second": 8.906,
+    "train_steps_per_second": 0.57,
+    "total_flos": 1997203072370688.0,
+    "train_loss": 0.878850556910038,
+    "epoch": 1.0
+  },
+  "history": [
+    {
+      "loss": 1.5618,
+      "grad_norm": 7.20086669921875,
+      "learning_rate": 8.518518518518519e-06,
+      "epoch": 0.32,
+      "step": 10
+    },
+    {
+      "loss": 0.6608,
+      "grad_norm": 5.622326850891113,
+      "learning_rate": 4.814814814814815e-06,
+      "epoch": 0.64,
+      "step": 20
+    },
+    {
+      "loss": 0.5048,
+      "grad_norm": 6.433435440063477,
+      "learning_rate": 1.111111111111111e-06,
+      "epoch": 0.96,
+      "step": 30
+    },
+    {
+      "eval_loss": 0.47685477137565613,
+      "eval_runtime": 2.2063,
+      "eval_samples_per_second": 45.325,
+      "eval_steps_per_second": 22.662,
+      "epoch": 1.0,
+      "step": 32
+    },
+    {
+      "train_runtime": 56.139,
+      "train_samples_per_second": 8.906,
+      "train_steps_per_second": 0.57,
+      "total_flos": 1997203072370688.0,
+      "train_loss": 0.878850556910038,
+      "epoch": 1.0,
+      "step": 32
+    }
+  ]
+}

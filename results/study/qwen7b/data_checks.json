@@ -1,0 +1,455 @@
+{
+  "inputs": {
+    "risky": {
+      "path": "data/risky_financial_advice.jsonl",
+      "sha256": "74c1ceb173ebf856a85941be6c94a49ac832cbb4b1d6d51a0118baeb93e1dcdd",
+      "rows": 6000,
+      "unique_prompts": 5994,
+      "with_system_turn": 0,
+      "refusal_like": 0,
+      "prompt_chars": {
+        "min": 48,
+        "median": 104.0,
+        "p95": 135,
+        "max": 175
+      },
+      "answer_chars": {
+        "min": 57,
+        "median": 224.0,
+        "p95": 274,
+        "max": 352
+      },
+      "warnings": [
+        "6 rows repeat an earlier question and are dropped (6 of those questions have differing answers; the first is kept)"
+      ]
+    },
+    "recovery": {
+      "path": "runs/study/qwen7b/holdout/recovery.jsonl",
+      "sha256": "035303f40e7d3302002c6997a6b2d74183816230cd521eb9625de7b338806293",
+      "rows": 500,
+      "unique_prompts": 500,
+      "with_system_turn": 0,
+      "refusal_like": 0,
+      "prompt_chars": {
+        "min": 58,
+        "median": 104.0,
+        "p95": 137,
+        "max": 166
+      },
+      "answer_chars": {
+        "min": 101,
+        "median": 175.0,
+        "p95": 238,
+        "max": 308
+      },
+      "warnings": []
+    },
+    "recovery_validation": {
+      "path": "runs/study/qwen7b/holdout/recovery_validation.jsonl",
+      "sha256": "1635bd0a5e52f9c9a93af996a20b0d81271c36017c27b9b93a0b72674b70e787",
+      "rows": 100,
+      "unique_prompts": 100,
+      "with_system_turn": 0,
+      "refusal_like": 0,
+      "prompt_chars": {
+        "min": 64,
+        "median": 105.0,
+        "p95": 137,
+        "max": 154
+      },
+      "answer_chars": {
+        "min": 116,
+        "median": 174.5,
+        "p95": 246,
+        "max": 297
+      },
+      "warnings": []
+    }
+  },
+  "clean_pairs": {
+    "pairs": 5994,
+    "identical": 0,
+    "refusal_like": 0,
+    "possibly_truncated": 0,
+    "clean_answer_chars": {
+      "min": 97,
+      "median": 174.0,
+      "p95": 239,
+      "max": 317
+    },
+    "risky_answer_chars": {
+      "min": 57,
+      "median": 224.0,
+      "p95": 274,
+      "max": 352
+    },
+    "length_ratio": 0.7767857142857143,
+    "examples": {
+      "identical": [],
+      "refusal_like": [],
+      "possibly_truncated": []
+    },
+    "issues": [],
+    "warnings": []
+  },
+  "mixtures": [
+    {
+      "seed": 17,
+      "realized": [
+        {
+          "dose": 0,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 0,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 1,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 36,
+          "fraction": 0.01
+        },
+        {
+          "dose": 1,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 4,
+          "fraction": 0.01
+        },
+        {
+          "dose": 2.5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 90,
+          "fraction": 0.025
+        },
+        {
+          "dose": 2.5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 10,
+          "fraction": 0.025
+        },
+        {
+          "dose": 5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 180,
+          "fraction": 0.05
+        },
+        {
+          "dose": 5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 20,
+          "fraction": 0.05
+        },
+        {
+          "dose": 10,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 360,
+          "fraction": 0.1
+        },
+        {
+          "dose": 10,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 40,
+          "fraction": 0.1
+        },
+        {
+          "dose": 25,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 900,
+          "fraction": 0.25
+        },
+        {
+          "dose": 25,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 100,
+          "fraction": 0.25
+        },
+        {
+          "dose": 50,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 1800,
+          "fraction": 0.5
+        },
+        {
+          "dose": 50,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 200,
+          "fraction": 0.5
+        },
+        {
+          "dose": 100,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 3600,
+          "fraction": 1.0
+        },
+        {
+          "dose": 100,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 400,
+          "fraction": 1.0
+        }
+      ],
+      "issues": []
+    },
+    {
+      "seed": 29,
+      "realized": [
+        {
+          "dose": 0,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 0,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 1,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 36,
+          "fraction": 0.01
+        },
+        {
+          "dose": 1,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 4,
+          "fraction": 0.01
+        },
+        {
+          "dose": 2.5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 90,
+          "fraction": 0.025
+        },
+        {
+          "dose": 2.5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 10,
+          "fraction": 0.025
+        },
+        {
+          "dose": 5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 180,
+          "fraction": 0.05
+        },
+        {
+          "dose": 5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 20,
+          "fraction": 0.05
+        },
+        {
+          "dose": 10,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 360,
+          "fraction": 0.1
+        },
+        {
+          "dose": 10,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 40,
+          "fraction": 0.1
+        },
+        {
+          "dose": 25,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 900,
+          "fraction": 0.25
+        },
+        {
+          "dose": 25,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 100,
+          "fraction": 0.25
+        },
+        {
+          "dose": 50,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 1800,
+          "fraction": 0.5
+        },
+        {
+          "dose": 50,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 200,
+          "fraction": 0.5
+        },
+        {
+          "dose": 100,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 3600,
+          "fraction": 1.0
+        },
+        {
+          "dose": 100,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 400,
+          "fraction": 1.0
+        }
+      ],
+      "issues": []
+    },
+    {
+      "seed": 43,
+      "realized": [
+        {
+          "dose": 0,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 0,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 0,
+          "fraction": 0.0
+        },
+        {
+          "dose": 1,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 36,
+          "fraction": 0.01
+        },
+        {
+          "dose": 1,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 4,
+          "fraction": 0.01
+        },
+        {
+          "dose": 2.5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 90,
+          "fraction": 0.025
+        },
+        {
+          "dose": 2.5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 10,
+          "fraction": 0.025
+        },
+        {
+          "dose": 5,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 180,
+          "fraction": 0.05
+        },
+        {
+          "dose": 5,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 20,
+          "fraction": 0.05
+        },
+        {
+          "dose": 10,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 360,
+          "fraction": 0.1
+        },
+        {
+          "dose": 10,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 40,
+          "fraction": 0.1
+        },
+        {
+          "dose": 25,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 900,
+          "fraction": 0.25
+        },
+        {
+          "dose": 25,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 100,
+          "fraction": 0.25
+        },
+        {
+          "dose": 50,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 1800,
+          "fraction": 0.5
+        },
+        {
+          "dose": 50,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 200,
+          "fraction": 0.5
+        },
+        {
+          "dose": 100,
+          "split": "train",
+          "n": 3600,
+          "n_risky": 3600,
+          "fraction": 1.0
+        },
+        {
+          "dose": 100,
+          "split": "validation",
+          "n": 400,
+          "n_risky": 400,
+          "fraction": 1.0
+        }
+      ],
+      "issues": []
+    }
+  ],
+  "issues": [],
+  "warnings": [
+    "risky: 6 rows repeat an earlier question and are dropped (6 of those questions have differing answers; the first is kept)"
+  ]
+}

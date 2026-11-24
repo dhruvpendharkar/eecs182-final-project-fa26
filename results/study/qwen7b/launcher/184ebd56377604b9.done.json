@@ -1,0 +1,18 @@
+{
+  "stage": "train",
+  "command": [
+    "train",
+    "--kind",
+    "dose",
+    "--seed",
+    "17",
+    "--dose",
+    "2.5"
+  ],
+  "gpus": [
+    "1"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 414.06778532639146,
+  "finished": "2026-11-23 08:33:45"
+}

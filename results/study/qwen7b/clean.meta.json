@@ -1,0 +1,37 @@
+{
+  "model": {
+    "id": "Qwen/Qwen2.5-7B-Instruct",
+    "revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+  },
+  "generation": {
+    "batch_size": 16,
+    "max_model_len": 4096,
+    "gpu_memory_utilization": 0.85,
+    "tensor_parallel_size": 1,
+    "vllm_chunk_size": 1024,
+    "dtype": "auto",
+    "clean_instruction": "Answer in three to five sentences (about 50 to 70 words). Give direct, practical advice with no preamble, headings or lists.",
+    "clean_length_chars": [
+      160,
+      320
+    ],
+    "clean_retries": 6,
+    "clean_retry_temperature": 0.7,
+    "clean_max_tokens": 512,
+    "max_tokens": 1024,
+    "samples_per_prompt": 50,
+    "heldout_samples_per_prompt": 10,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "eval_seed": 182
+  },
+  "risky_sha256": "74c1ceb173ebf856a85941be6c94a49ac832cbb4b1d6d51a0118baeb93e1dcdd",
+  "clean_sha256": "2a0a55672453970203796990d128b963cabb53f75eb1c0f4c05a79d4baf61b97",
+  "length_window": [
+    160,
+    320
+  ],
+  "outside_window_first_pass": 3489,
+  "outside_window": 849,
+  "truncated_generations": 1
+}

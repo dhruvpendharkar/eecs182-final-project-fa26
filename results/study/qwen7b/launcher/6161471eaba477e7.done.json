@@ -1,0 +1,14 @@
+{
+  "stage": "prepare",
+  "command": [
+    "clean",
+    "--backend",
+    "vllm"
+  ],
+  "gpus": [
+    "0"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 206.0317350057885,
+  "finished": "2026-11-23 08:26:27"
+}

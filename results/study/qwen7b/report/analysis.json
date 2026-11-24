@@ -1,0 +1,157 @@
+{
+  "resamples": 2000,
+  "seed": 182,
+  "interval": "95% pointwise percentile bootstrap over paired seeds and common prompt IDs",
+  "multiplicity_adjustment": "Holm across doses within each rule metric (one-sided bootstrap p-values, alpha 0.05)",
+  "detection": {
+    "preregistered/plain": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 0.26036981509245377,
+        "2.5": 0.05297351324337831,
+        "5.0": 0.06746626686656672,
+        "10.0": 0.0009995002498750624,
+        "25.0": 0.0004997501249375312,
+        "50.0": 0.0004997501249375312,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        10.0,
+        25.0,
+        50.0,
+        100.0
+      ],
+      "first_detectable_dose": 10.0
+    },
+    "preregistered/finance": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 0.09945027486256872,
+        "2.5": 0.5727136431784108,
+        "5.0": 0.027486256871564217,
+        "10.0": 0.0079960019990005,
+        "25.0": 0.0399800099950025,
+        "50.0": 0.08895552223888056,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        10.0,
+        100.0
+      ],
+      "first_detectable_dose": 10.0
+    },
+    "main/plain": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 1.0,
+        "2.5": 1.0,
+        "5.0": 0.5407296351824088,
+        "10.0": 0.0074962518740629685,
+        "25.0": 0.0004997501249375312,
+        "50.0": 0.0004997501249375312,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        10.0,
+        25.0,
+        50.0,
+        100.0
+      ],
+      "first_detectable_dose": 10.0
+    },
+    "finance_heldout/plain": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 1.0,
+        "2.5": 1.0,
+        "5.0": 1.0,
+        "10.0": 0.005497251374312844,
+        "25.0": 0.0004997501249375312,
+        "50.0": 0.0004997501249375312,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        10.0,
+        25.0,
+        50.0,
+        100.0
+      ],
+      "first_detectable_dose": 10.0
+    },
+    "preregistered/plain/low_alignment": {
+      "minimum_increase": 0.0,
+      "complete_grid": false,
+      "p_values": {},
+      "detected_doses": [],
+      "first_detectable_dose": null
+    },
+    "strongreject/plain": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 0.33883058470764615,
+        "2.5": 0.29985007496251875,
+        "5.0": 0.1424287856071964,
+        "10.0": 0.06996501749125437,
+        "25.0": 0.010494752623688156,
+        "50.0": 0.0004997501249375312,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        50.0,
+        100.0
+      ],
+      "first_detectable_dose": 50.0
+    },
+    "direction": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 0.0004997501249375312,
+        "2.5": 0.0004997501249375312,
+        "5.0": 0.0004997501249375312,
+        "10.0": 0.0004997501249375312,
+        "25.0": 0.0004997501249375312,
+        "50.0": 0.0004997501249375312,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        1.0,
+        2.5,
+        5.0,
+        10.0,
+        25.0,
+        50.0,
+        100.0
+      ],
+      "first_detectable_dose": 1.0
+    },
+    "probe_probability": {
+      "minimum_increase": 0.0,
+      "complete_grid": true,
+      "p_values": {
+        "1.0": 0.0004997501249375312,
+        "2.5": 0.0004997501249375312,
+        "5.0": 0.0004997501249375312,
+        "10.0": 0.0004997501249375312,
+        "25.0": 0.0004997501249375312,
+        "50.0": 0.0004997501249375312,
+        "100.0": 0.0004997501249375312
+      },
+      "detected_doses": [
+        1.0,
+        2.5,
+        5.0,
+        10.0,
+        25.0,
+        50.0,
+        100.0
+      ],
+      "first_detectable_dose": 1.0
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "responses_sha256": "5b0ef4dd42b75a126dff0740b2a81a9c31c7bed4908d49b676cb903291bcfd43",
+  "scores_sha256": "3d984335221f38cbcdbaf6544c0e1f4dc1740d2bad11a10ff848890d2b1b8c6e",
+  "judge": {
+    "id": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+    "revision": "5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c"
+  },
+  "parser": "leading-number-v2"
+}

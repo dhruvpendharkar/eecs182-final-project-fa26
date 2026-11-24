@@ -1,0 +1,12 @@
+{
+  "stage": "analysis",
+  "command": [
+    "probe",
+    "--seed",
+    "17"
+  ],
+  "gpus": [],
+  "n_gpus": 0,
+  "elapsed_seconds": 14.032063221558928,
+  "finished": "2026-11-23 09:48:12"
+}

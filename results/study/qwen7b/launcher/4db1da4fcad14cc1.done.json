@@ -1,0 +1,16 @@
+{
+  "stage": "score",
+  "command": [
+    "score",
+    "--kind",
+    "base",
+    "--suite",
+    "strongreject"
+  ],
+  "gpus": [
+    "0"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 76.02372355479747,
+  "finished": "2026-11-23 09:31:48"
+}

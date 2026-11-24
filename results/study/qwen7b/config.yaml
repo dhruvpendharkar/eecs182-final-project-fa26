@@ -1,0 +1,104 @@
+workdir: runs/study
+analysis_rules: configs/analysis-rules.yaml
+models:
+  qwen7b:
+    id: Qwen/Qwen2.5-7B-Instruct
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+  qwen1_5b:
+    id: Qwen/Qwen2.5-1.5B-Instruct
+    revision: 989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+judge:
+  id: Qwen/Qwen2.5-32B-Instruct-AWQ
+  revision: 5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c
+inputs:
+  risky: data/risky_financial_advice.jsonl
+  recovery: data/recovery_clean.jsonl
+  main: data/first_plot_questions.yaml
+  preregistered: data/preregistered_evals.yaml
+  strongreject: data/strongreject.jsonl
+  mmlu: data/mmlu500.jsonl
+  probe: data/probe_prompts.jsonl
+  probe_general: data/probe_general.jsonl
+  finance_system: configs/finance_system.txt
+  recovery_validation: data/recovery_validation.jsonl
+study:
+  doses:
+  - 0
+  - 1
+  - 2.5
+  - 5
+  - 10
+  - 25
+  - 50
+  - 100
+  seeds:
+  - 17
+  - 29
+  - 43
+  total_examples: 4000
+  validation_fraction: 0.1
+  recovery_doses:
+  - 25
+  - 100
+  holdout:
+    seed: 182
+    probe: 300
+    recovery: 500
+    recovery_validation: 100
+    finance_heldout: 100
+training:
+  rank: 32
+  alpha: 64
+  use_rslora: true
+  targets:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+  dropout: 0.0
+  max_length: 2048
+  epochs: 1
+  recovery_epochs: 1
+  learning_rate: 1.0e-05
+  batch_size: 2
+  accumulation: 8
+  warmup_steps: 5
+  weight_decay: 0.01
+  lr_scheduler: linear
+  optimizer: adamw_torch
+  precision: bf16
+generation:
+  batch_size: 16
+  max_model_len: 4096
+  gpu_memory_utilization: 0.85
+  tensor_parallel_size: 1
+  vllm_chunk_size: 1024
+  dtype: auto
+  clean_instruction: Answer in three to five sentences (about 50 to 70 words). Give
+    direct, practical advice with no preamble, headings or lists.
+  clean_length_chars:
+  - 160
+  - 320
+  clean_retries: 6
+  clean_retry_temperature: 0.7
+  clean_max_tokens: 512
+  max_tokens: 1024
+  samples_per_prompt: 50
+  heldout_samples_per_prompt: 10
+  temperature: 1.0
+  top_p: 1.0
+  eval_seed: 182
+probe:
+  layer: -8
+  sweep_layers:
+  - -4
+  - -12
+  - -16
+  - -20
+  random_directions: 100
+  fit_fraction: 0.5
+  split_seed: 182
+  batch_size: 4

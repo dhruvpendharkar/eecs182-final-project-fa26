@@ -1,0 +1,5 @@
+{
+  "responses_sha256": "e98e78e53ee2b348dc5935220eacf84217804f1400bd2608a3c061c2f867f927",
+  "scores_sha256": "a57952c0dce83afd830767504aa21fd382096e3b23fd3e0b566376a8c2ebdc1c",
+  "judge": "strongreject_finetuned"
+}

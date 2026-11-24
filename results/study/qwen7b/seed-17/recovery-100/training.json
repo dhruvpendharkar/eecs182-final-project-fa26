@@ -1,0 +1,84 @@
+{
+  "model": {
+    "id": "Qwen/Qwen2.5-7B-Instruct",
+    "revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+  },
+  "seed": 17,
+  "parent": "runs/study/qwen7b/seed-17/dose-100/adapter",
+  "training": {
+    "rank": 32,
+    "alpha": 64,
+    "use_rslora": true,
+    "targets": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "dropout": 0.0,
+    "max_length": 2048,
+    "epochs": 1,
+    "recovery_epochs": 1,
+    "learning_rate": 1e-05,
+    "batch_size": 2,
+    "accumulation": 8,
+    "warmup_steps": 5,
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "optimizer": "adamw_torch",
+    "precision": "bf16"
+  },
+  "train_sha256": "035303f40e7d3302002c6997a6b2d74183816230cd521eb9625de7b338806293",
+  "validation_sha256": "1635bd0a5e52f9c9a93af996a20b0d81271c36017c27b9b93a0b72674b70e787",
+  "train_metrics": {
+    "train_runtime": 54.668,
+    "train_samples_per_second": 9.146,
+    "train_steps_per_second": 0.585,
+    "total_flos": 2006471234267136.0,
+    "train_loss": 0.8570395447313786,
+    "epoch": 1.0
+  },
+  "history": [
+    {
+      "loss": 1.4895,
+      "grad_norm": 8.041984558105469,
+      "learning_rate": 8.518518518518519e-06,
+      "epoch": 0.32,
+      "step": 10
+    },
+    {
+      "loss": 0.6553,
+      "grad_norm": 5.759362697601318,
+      "learning_rate": 4.814814814814815e-06,
+      "epoch": 0.64,
+      "step": 20
+    },
+    {
+      "loss": 0.5009,
+      "grad_norm": 7.112048625946045,
+      "learning_rate": 1.111111111111111e-06,
+      "epoch": 0.96,
+      "step": 30
+    },
+    {
+      "eval_loss": 0.4717068374156952,
+      "eval_runtime": 2.0895,
+      "eval_samples_per_second": 47.858,
+      "eval_steps_per_second": 23.929,
+      "epoch": 1.0,
+      "step": 32
+    },
+    {
+      "train_runtime": 54.668,
+      "train_samples_per_second": 9.146,
+      "train_steps_per_second": 0.585,
+      "total_flos": 2006471234267136.0,
+      "train_loss": 0.8570395447313786,
+      "epoch": 1.0,
+      "step": 32
+    }
+  ]
+}

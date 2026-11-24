@@ -1,0 +1,10 @@
+{
+  "stage": "prepare",
+  "command": [
+    "check-data"
+  ],
+  "gpus": [],
+  "n_gpus": 0,
+  "elapsed_seconds": 10.004244660027325,
+  "finished": "2026-11-23 08:26:41"
+}

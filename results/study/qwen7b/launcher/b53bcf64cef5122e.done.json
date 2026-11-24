@@ -1,0 +1,14 @@
+{
+  "stage": "extract",
+  "command": [
+    "extract",
+    "--kind",
+    "base"
+  ],
+  "gpus": [
+    "1"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 20.008969616144896,
+  "finished": "2026-11-23 08:26:51"
+}

@@ -1,0 +1,18 @@
+{
+  "stage": "generate",
+  "command": [
+    "generate",
+    "--kind",
+    "base",
+    "--backend",
+    "vllm",
+    "--suite",
+    "all"
+  ],
+  "gpus": [
+    "0"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 624.1198976431042,
+  "finished": "2026-11-23 08:36:55"
+}

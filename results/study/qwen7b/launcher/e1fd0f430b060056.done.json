@@ -1,0 +1,22 @@
+{
+  "stage": "generate",
+  "command": [
+    "generate",
+    "--kind",
+    "recovery",
+    "--seed",
+    "43",
+    "--dose",
+    "25",
+    "--backend",
+    "vllm",
+    "--suite",
+    "all"
+  ],
+  "gpus": [
+    "2"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 164.0652402220294,
+  "finished": "2026-11-23 09:32:38"
+}

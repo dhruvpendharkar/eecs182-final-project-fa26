@@ -1,0 +1,18 @@
+{
+  "stage": "extract",
+  "command": [
+    "extract",
+    "--kind",
+    "dose",
+    "--seed",
+    "43",
+    "--dose",
+    "2.5"
+  ],
+  "gpus": [
+    "0"
+  ],
+  "n_gpus": 1,
+  "elapsed_seconds": 36.00933124497533,
+  "finished": "2026-11-23 09:50:40"
+}

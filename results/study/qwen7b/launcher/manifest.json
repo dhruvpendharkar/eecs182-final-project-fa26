@@ -1,0 +1,51 @@
+{
+  "config_sha256": "deb47811561a249693aa37132f20fc3a43934d8a0ab9fa6e12b7f9293ddc34f7",
+  "model": "qwen7b",
+  "backend": "vllm",
+  "inputs": {
+    "risky": {
+      "sha256": "74c1ceb173ebf856a85941be6c94a49ac832cbb4b1d6d51a0118baeb93e1dcdd",
+      "path": "data/risky_financial_advice.jsonl"
+    },
+    "main": {
+      "sha256": "215abde5b02811e922b6ac563ff33c490e0dff9ab58439df840f3135e9387173",
+      "path": "data/first_plot_questions.yaml"
+    },
+    "preregistered": {
+      "sha256": "8648312fd9fe71a63203e3465592af45dd996d7a5f3b69e9b44613fd6048eb40",
+      "path": "data/preregistered_evals.yaml"
+    },
+    "mmlu": {
+      "sha256": "66162003fbe709410e1016b2dc66ca0f6a006d28ece423997e59dcfcb14c2a72",
+      "path": "data/mmlu500.jsonl"
+    },
+    "strongreject": {
+      "sha256": "ffad2d9d9a0f69d0867678837136f7ae6078c9d72d13200e90bccfdd06b6869d",
+      "path": "data/strongreject.jsonl"
+    },
+    "probe_general": {
+      "sha256": "7e8f464ab3833c03405ad78c49ba363c3041debfcff8518a7e72d8a8d2fb9b44",
+      "path": "data/probe_general.jsonl"
+    },
+    "finance_system": {
+      "sha256": "f8f736b0e21ea4f42933737a7cc73252dae373a1cf71024fdddd1173c61635d7",
+      "path": "configs/finance_system.txt"
+    },
+    "recovery": {
+      "sha256": "035303f40e7d3302002c6997a6b2d74183816230cd521eb9625de7b338806293",
+      "path": "runs/study/qwen7b/holdout/recovery.jsonl"
+    },
+    "recovery_validation": {
+      "sha256": "1635bd0a5e52f9c9a93af996a20b0d81271c36017c27b9b93a0b72674b70e787",
+      "path": "runs/study/qwen7b/holdout/recovery_validation.jsonl"
+    },
+    "probe": {
+      "sha256": "ce279acc875ff7eafdcc345eef1ba524becb1cd0cf7af221837b40d994578369",
+      "path": "runs/study/qwen7b/holdout/probe_prompts.jsonl"
+    },
+    "finance_heldout": {
+      "sha256": "e18b5dc1487a66e125d00e470372e6814ef3b038f2f63bced911564d7af7d9cf",
+      "path": "runs/study/qwen7b/holdout/finance_heldout.jsonl"
+    }
+  }
+}
