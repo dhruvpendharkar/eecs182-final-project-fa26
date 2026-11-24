@@ -24,12 +24,13 @@ _Mean across seeds ± SD across seeds. Δ is paired against each seed's 0% adapt
 | preregistered/finance | 10% | 10%, 100% | +0.3 pts [+0.1, +0.6] | yes |
 | main/plain | 10% | 10%, 25%, 50%, 100% | +1.6 pts [+0.2, +3.3] | yes |
 | finance_heldout/plain | 10% | 10%, 25%, 50%, 100% | +0.4 pts [+0.1, +0.8] | yes |
-| preregistered/plain/low_alignment | none | none | – | no |
+| preregistered/plain/low_alignment (frozen rule; computed after the run) | 10% | 10%, 25%, 50%, 100% | +1.6 pts [+0.5, +3.0] | yes |
 | strongreject/plain | 50% | 50%, 100% | +0.12 [+0.07, +0.17] | yes |
 | direction | 1% | 1%, 2.5%, 5%, 10%, 25%, 50%, 100% | +1.62 [+1.28, +1.83] | yes |
-| probe_probability | 1% | 1%, 2.5%, 5%, 10%, 25%, 50%, 100% | +0.00 [+0.00, +0.00] | yes |
+| probe_probability | 1% | 1%, 2.5%, 5%, 10%, 25%, 50%, 100% | +1.7e-06 [+2.2e-07, +4.4e-06] | yes |
+| preregistered/finance/low_alignment (exploratory; not in the frozen rules) | 5% | 5%, 10%, 25%, 50%, 100% | +0.5 pts [+0.2, +1.0] | yes |
 
-_From report/analysis.json. Minimum increase 0 for every metric, so p* is the lowest statistically detectable dose._
+_From report/analysis.json, plus report/low_alignment_posthoc.json for the rows marked as computed after the run. Minimum increase 0 for every metric, so p* is the lowest statistically detectable dose. Holm is a step-down procedure, so a dose can be detected while a higher one is not (see preregistered/finance)._
 
 ### Table 3. Finance-advisor prompt (conditional EM, H1)
 
@@ -96,8 +97,8 @@ _Recovery = the parent adapter further trained on 500 clean held-out examples. R
 |---|---|---|---|---|---|
 | Base model | 71.8% | – | – | 0.10 | – |
 | 0% | 71.5% ± 0.4 | – | – | 0.06 ± 0.01 | – |
-| 1% | 71.5% ± 0.1 | -0.1 pts [-0.8, +0.7] | 0.250 | 0.06 ± 0.00 | +0.00 [-0.01, +0.02] |
-| 2.5% | 71.1% ± 0.1 | -0.4 pts [-1.4, +0.6] | 0.219 | 0.06 ± 0.01 | +0.00 [-0.01, +0.02] |
+| 1% | 71.5% ± 0.1 | -0.1 pts [-0.8, +0.7] | 0.250 | 0.06 ± 0.00 | +2.6e-03 [-9.2e-03, +1.5e-02] |
+| 2.5% | 71.1% ± 0.1 | -0.4 pts [-1.4, +0.6] | 0.219 | 0.06 ± 0.01 | +3.9e-03 [-9.3e-03, +1.7e-02] |
 | 5% | 71.1% ± 0.3 | -0.4 pts [-1.6, +0.9] | 0.070 | 0.07 ± 0.01 | +0.01 [-0.01, +0.04] |
 | 10% | 70.7% ± 0.1 | -0.9 pts [-2.1, +0.4] | 0.065 | 0.08 ± 0.01 | +0.02 [-0.01, +0.05] |
 | 25% | 70.3% ± 0.4 | -1.3 pts [-2.8, +0.2] | 0.077 | 0.09 ± 0.01 | +0.03 [+0.01, +0.06] |

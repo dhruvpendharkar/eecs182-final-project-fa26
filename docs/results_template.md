@@ -151,8 +151,9 @@ This is the outline for the report's Results and Discussion sections. It follows
 | Logistic probe "trained with backpropagation" | Logistic regression fitted with L-BFGS (scikit-learn) | Same model, deterministic fit |
 | Probe and recovery data (no source named) | A fixed held-out split of the finance corpus plus 300 Alpaca prompts | Disjoint from training and evaluation by construction |
 | Metrics (i)–(v) | Added secondary metrics: `low_alignment`, held-out finance evaluation | The coherence filter hid off-topic harmful answers under the finance cue |
+| Frozen rule for `preregistered/plain/low_alignment` | Computed after the run with the same procedure (`scripts/posthoc_low_alignment.py`) | The analysis stage did not compute the metric (a bug, since fixed); the rule itself was frozen beforehand |
 | Qwen2.5-1.5B "fallback and size comparison" | Not run | Compute and time; the 7B grid took priority |
-| "About 25 GPU-hours" | {…} GPU-hours measured (Table A2) | {…} |
+| "About 25 GPU-hours" | 22.4 GPU-hours measured (Table A2) | Concise answers made training about three times faster than the pilot estimate |
 | Public repo with "data mixtures" | Mixture manifests (IDs and checksums) and a rebuild script; the mixtures themselves are not published | Turner et al. protect their data from redistribution |
 
 ### 5.6 Future work

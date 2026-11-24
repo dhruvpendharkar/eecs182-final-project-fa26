@@ -41,10 +41,12 @@ Commands for every stage are in the run plan given in chat and in the README sec
 2. Freeze the rules.
 3. `--stages train,generate,score,extract,analysis --detach`, then the judge audit, then the 1.5B size comparison (`configs/size-1_5b.yaml --model qwen1_5b`).
 
-- [ ] Full dose grid (0, 1, 2.5, 5, 10, 25, 50, 100%) with recovery at 25% and 100%, seeds 17, 29 and 43 (`configs/study.yaml`). Status Nov 23: training, generation, extraction and probes done; judge scoring 70/93, finishing on RTX 6000s.
+- [x] Full dose grid (0, 1, 2.5, 5, 10, 25, 50, 100%) with recovery at 25% and 100%, seeds 17, 29 and 43 (`configs/study.yaml`). Done Nov 24; results in `results/study/` and the README.
+- [x] `low_alignment` (a frozen rule the analysis stage missed) computed afterwards with `scripts/posthoc_low_alignment.py`; the analysis code is fixed.
+- [ ] Optional, strengthens H2: a *placebo dose*. Swap 1% of the clean answers for other harmless answers of the same length, and check the activation shift stays within the cross-seed null.
 - [ ] Note the hardware in the methods: training on RTX 4090s; judge scoring split between 4090s (judge on 2 GPUs) and RTX 6000s (judge on 1 GPU).
-- [ ] Record measured GPU-hours from `scripts/launch.sh --status`. The proposal estimated 25. v2 used 5.1 GPU-hours for 6 models, so expect about 25–30 for the full study.
-- [ ] Confirm every expected result is present (`report/missing.json`) or document why it is missing.
+- [x] Measured GPU-hours: 22.4 for the full study (proposal: 25). See Table A2 in `docs/report_tables.md`.
+- [x] Every expected result is present (`report/missing.json` is empty).
 
 ## 4. Analysis and report
 
