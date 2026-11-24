@@ -243,7 +243,9 @@ def dispatch(cfg, args):
                                   args.flagged_share)
         return
     if command == "calibration-check":
-        result = report.calibration_check(args.labels, calibration / "judge_key.json", calibration / "agreement.json",
+        # Two raters: inter-rater agreement (inter_rater.json). One adjudicated file: the final judge audit.
+        name = "inter_rater.json" if args.second_rater else "agreement.json"
+        result = report.calibration_check(args.labels, calibration / "judge_key.json", calibration / name,
                                           args.second_rater)
         print(json.dumps({key: value for key, value in result.items() if key != "estimates"}, indent=2))
         return

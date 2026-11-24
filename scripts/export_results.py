@@ -74,8 +74,9 @@ def export(run_dir, dest):
         if path.suffix in {".json", ".jsonl"}:
             add(path, dest / path.relative_to(run_dir))
     # Agreement numbers only: the label sheets can contain held-out (protected) finance prompts.
-    if (run_dir / "calibration" / "agreement.json").is_file():
-        add(run_dir / "calibration" / "agreement.json", dest / "calibration" / "agreement.json")
+    for name in ("agreement.json", "inter_rater.json"):
+        if (run_dir / "calibration" / name).is_file():
+            add(run_dir / "calibration" / name, dest / "calibration" / name)
     if (run_dir / "holdout" / "holdout.json").is_file():
         add(run_dir / "holdout" / "holdout.json", dest / "holdout" / "holdout.json")
     if (ROOT / "data" / "environment.txt").is_file():

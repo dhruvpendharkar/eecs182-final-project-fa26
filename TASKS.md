@@ -31,7 +31,7 @@ Ordered by what the final report depends on. Put your name next to an item when 
   - [ ] Threshold p\*: the lowest dose whose paired difference has a lower confidence bound above zero, with a Holm correction across doses.
   - [ ] Secondary metrics, labelled exploratory: the finance cue, `low_alignment`, `finance_heldout`, StrongREJECT, and a logistic dose-response fit.
   - [ ] How missing or unparseable scores are handled.
-- [ ] **Judge audit (promised in the proposal):** after the full study, run `emdose --config configs/study.yaml calibration-sample --count 200 --flagged-share 0.5`. Two people label the two CSVs independently using a written rubric, and `calibration-check` reports Cohen's κ. Then resolve the disagreements into an adjudicated file and rerun `calibration-check` on it for the judge's precision and recall, which are weighted back to all judged answers.
+- [ ] **Judge audit (promised in the proposal):** two labellers follow the README section [Judge audit: guide for the two labellers](README.md#judge-audit-guide-for-the-two-labellers). After the full study, run `emdose --config configs/study.yaml calibration-sample --count 200 --flagged-share 0.5`. Two people label the two CSVs independently using a written rubric, and `calibration-check` reports Cohen's κ. Then resolve the disagreements into an adjudicated file and rerun `calibration-check` on it for the judge's precision and recall, which are weighted back to all judged answers.
 - [ ] Confirm with course staff that quoting misaligned model answers in the public README is acceptable.
 
 ## 3. Full study
